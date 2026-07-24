@@ -1,0 +1,1 @@
+- [Roamwise product direction](roamwise-product.md) — optimize experience value with transparent, preference-aware tradeoffs rather than generic attraction lists.

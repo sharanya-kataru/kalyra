@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Roamwise Travel Optimizer"
+version = "1.0.0"
+id = "artifacts/travel-optimizer"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25104
+
+[services.development]
+run = "pnpm --filter @workspace/travel-optimizer run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/travel-optimizer", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/travel-optimizer/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25104"
+BASE_PATH = "/"

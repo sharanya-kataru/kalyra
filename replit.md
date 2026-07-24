@@ -1,6 +1,6 @@
-# [Project name]
+# Roamwise Travel Optimizer
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Roamwise is a personalized travel decision-making platform that helps independent travelers optimize limited vacation time, money, and experiences.
 
 ## Run & Operate
 
@@ -22,15 +22,26 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/travel-optimizer/src/App.tsx` — interactive prototype flow and route-level UI
+- `artifacts/travel-optimizer/src/index.css` — Roamwise visual language and theme tokens
+- `artifacts/travel-optimizer/src/data/` — milestone-one mock trip data
+- `artifacts/api-server/src/routes/` — shared FastAPI-oriented API boundary placeholder (currently Express scaffold)
+- `lib/api-spec/openapi.yaml` — source of truth for future typed trip-generation endpoints
+- `lib/db/src/schema/` — source of truth for future trip and itinerary persistence
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The first milestone is frontend-first with mock data so the core decision-making experience can be evaluated before external AI and persistence are introduced.
+- The product flow is intentionally split into questionnaire, analysis, and generated trip dashboard states so recommendation reasoning is visible before the itinerary is accepted.
+- The UI uses a dedicated travel domain model for preferences, rankings, route segments, daily plans, budgets, and checklist items; this maps directly to the planned structured AI response.
+- Roamwise is a decision-support product, not a booking marketplace; booking actions are represented only as a preparation checklist.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Landing page communicates the promise and shows an example of a considered route.
+- Questionnaire captures destination context, budget intent, interests, pace, and travel constraints.
+- Analysis screen explains the recommended strategy and ranks destinations by experience match.
+- Trip dashboard visualizes route flow, destination tradeoffs, daily plans, budget allocation, and preparation tasks.
 
 ## User preferences
 
@@ -38,7 +49,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Keep `lib/api-spec/openapi.yaml` as the contract source of truth when backend endpoints are added, then run codegen before consuming new client types.
+- Keep the current visual language consistent: deep fjord teal, limestone parchment, alpine sage, saffron accents, DM Sans, Fraunces, and DM Mono.
+- The app is served at the artifact root path and its managed workflow supplies `PORT` and `BASE_PATH`.
 
 ## Pointers
 
