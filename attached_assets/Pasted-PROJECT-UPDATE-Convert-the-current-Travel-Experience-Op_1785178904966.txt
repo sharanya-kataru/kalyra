@@ -1,0 +1,239 @@
+PROJECT UPDATE: Convert the current Travel Experience Optimization Platform from a static itinerary generator into a dynamic AI travel planning system.
+
+IMPORTANT:
+Before changing code, analyze the current implementation.
+Identify:
+1. What is currently hardcoded.
+2. What parts prevent generating unique itineraries per user.
+3. What architecture changes are needed.
+
+Do not rewrite the entire app unnecessarily.
+Refactor the existing project.
+
+CORE PRODUCT CHANGE:
+
+The itinerary must NOT be:
+- pre-made
+- hardcoded
+- reused between users
+- based on static examples
+
+Every user must receive a unique itinerary generated from their own:
+- destination
+- dates
+- budget
+- interests
+- travel style
+- preferences
+
+The product should behave like an AI travel consultant.
+
+--------------------------------------------------
+
+NEW USER EXPERIENCE:
+
+After the user completes the questionnaire:
+
+STEP 1:
+AI analyzes the trip.
+
+Show:
+
+Travel Strategy:
+Example:
+"Based on your interests in photography and mountains, we recommend prioritizing Switzerland over adding more cities."
+
+Destination Evaluation:
+For each destination:
+
+Name:
+Experience Match Score:
+Why it matches:
+Potential drawbacks:
+
+Example:
+
+Zermatt
+Score: 95%
+Why:
+Matches photography, mountains, nature preferences.
+
+Milan
+Score: 60%
+Why:
+Great city experience but lower alignment with nature priorities.
+
+STEP 2:
+
+User clicks:
+
+"Generate My Optimized Trip"
+
+AI creates a unique itinerary.
+
+--------------------------------------------------
+
+IMPORTANT NEW FEATURE:
+
+ADD ITERATIVE TRIP EDITING.
+
+The itinerary should be a living object.
+
+After generating a trip, add a chat/edit interface.
+
+Example:
+
+User:
+"Can we spend less time in Rome?"
+
+AI:
+Analyzes current itinerary.
+
+Response:
+
+"Reducing Rome from 3 nights to 2 nights allows an additional night in Zermatt. This increases the trip's nature experience score while keeping transportation efficient."
+
+Then update the itinerary.
+
+Users should be able to request:
+
+- Make this cheaper
+- Add more nature
+- Add more food experiences
+- Remove a destination
+- Add a destination
+- Slow down the trip
+- Reduce transportation
+- Change hotel preferences
+- Change activities
+
+--------------------------------------------------
+
+IMPLEMENT NEW BACKEND LOGIC:
+
+Create a new endpoint:
+
+POST /trips/{id}/modify
+
+Input:
+
+{
+ "current_itinerary": {},
+ "user_request": ""
+}
+
+Output:
+
+{
+ "updated_itinerary": {},
+ "changes_made": [],
+ "reasoning": ""
+}
+
+The AI should:
+1. Understand the requested change.
+2. Determine what parts of the itinerary are affected.
+3. Recalculate:
+   - budget
+   - transportation
+   - destination balance
+   - experience score
+4. Return an updated itinerary.
+
+--------------------------------------------------
+
+CHANGE DATA MODEL:
+
+Current itinerary storage is too simple.
+
+Update database structure.
+
+Create:
+
+Trip:
+- id
+- user_id
+- destination
+- dates
+- budget
+- traveler_profile
+
+Itinerary:
+- id
+- trip_id
+- route
+- destinations
+- daily_schedule
+- budget_breakdown
+- reasoning
+- version
+
+UserPreference:
+- interests
+- travel_style
+- dislikes
+- priorities
+
+TripModification:
+- id
+- trip_id
+- user_request
+- previous_version
+- updated_version
+- reasoning
+
+The system should remember previous changes.
+
+--------------------------------------------------
+
+AI REQUIREMENTS:
+
+Do not ask OpenAI to generate plain text.
+
+Use structured JSON output.
+
+The AI response should always follow:
+
+{
+"trip_strategy":"",
+"route":[],
+"destinations":[],
+"daily_itinerary":[],
+"budget_breakdown":[],
+"reasoning":"",
+"tradeoffs":[]
+}
+
+--------------------------------------------------
+
+REMOVE:
+
+Remove any:
+- hardcoded itineraries
+- example trips used as real data
+- static destination recommendations
+
+Mock data can only exist for testing.
+
+--------------------------------------------------
+
+DO NOT ADD YET:
+
+Do NOT build:
+- booking
+- payments
+- hotel marketplace
+- flight purchasing
+
+Focus only on proving:
+
+"The AI can create and improve a personalized trip."
+
+--------------------------------------------------
+
+After analyzing the current code, provide:
+
+1. Current architecture assessment.
+2. Files that need modification.
+3. Implementation plan.
+4. Then begin implementing.
