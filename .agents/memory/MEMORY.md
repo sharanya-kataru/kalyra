@@ -1,1 +1,1 @@
-- [Roamwise product direction](roamwise-product.md) — optimize experience value with transparent, preference-aware tradeoffs rather than generic attraction lists.
+- [Roamwise product direction](roamwise-product.md) — architecture, data flow, AI fallback strategy, and key file map for the full-stack Roamwise travel optimizer.

@@ -3,13 +3,15 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Roamwise Travel Experience Optimization API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: trips
+    description: Trip planning operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,138 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /trips:
+    post:
+      operationId: createTrip
+      tags: [trips]
+      summary: Create a new trip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripInput"
+      responses:
+        "201":
+          description: Trip created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /trips/{id}:
+    get:
+      operationId: getTrip
+      tags: [trips]
+      summary: Get a trip by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Trip found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+        "404":
+          description: Trip not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /trips/{id}/analyze:
+    post:
+      operationId: analyzeTrip
+      tags: [trips]
+      summary: AI analysis of trip destinations and strategy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Analysis complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripAnalysis"
+        "404":
+          description: Trip not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /trips/{id}/generate:
+    post:
+      operationId: generateItinerary
+      tags: [trips]
+      summary: Generate full AI itinerary for a trip
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Itinerary generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Itinerary"
+        "404":
+          description: Trip not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /trips/{id}/modify:
+    post:
+      operationId: modifyItinerary
+      tags: [trips]
+      summary: Modify existing itinerary via natural language request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripModificationInput"
+      responses:
+        "200":
+          description: Itinerary modified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripModification"
+        "404":
+          description: Trip not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +168,307 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    TravelerProfile:
+      type: object
+      properties:
+        interests:
+          type: array
+          items:
+            type: string
+        travel_style:
+          type: string
+        preferences:
+          type: array
+          items:
+            type: string
+      required:
+        - interests
+        - travel_style
+        - preferences
+
+    TripInput:
+      type: object
+      properties:
+        destination:
+          type: string
+        starting_location:
+          type: string
+        start_date:
+          type: string
+        end_date:
+          type: string
+        traveler_count:
+          type: integer
+        budget:
+          type: number
+        budget_preference:
+          type: string
+        traveler_profile:
+          $ref: "#/components/schemas/TravelerProfile"
+      required:
+        - destination
+        - starting_location
+        - start_date
+        - end_date
+        - traveler_count
+        - budget
+        - budget_preference
+        - traveler_profile
+
+    DestinationScore:
+      type: object
+      properties:
+        name:
+          type: string
+        score:
+          type: integer
+        reasoning:
+          type: string
+        drawbacks:
+          type: string
+      required:
+        - name
+        - score
+        - reasoning
+        - drawbacks
+
+    RouteStop:
+      type: object
+      properties:
+        location:
+          type: string
+        nights:
+          type: integer
+        transport_to_next:
+          type: ["string", "null"]
+        duration_hours:
+          type: ["number", "null"]
+      required:
+        - location
+        - nights
+        - transport_to_next
+        - duration_hours
+
+    DailyActivity:
+      type: object
+      properties:
+        morning:
+          type: string
+        afternoon:
+          type: string
+        evening:
+          type: string
+        food_recommendation:
+          type: string
+        transport:
+          type: string
+        estimated_cost:
+          type: number
+      required:
+        - morning
+        - afternoon
+        - evening
+        - food_recommendation
+        - transport
+        - estimated_cost
+
+    DailySchedule:
+      type: object
+      properties:
+        day:
+          type: integer
+        date:
+          type: string
+        location:
+          type: string
+        activities:
+          $ref: "#/components/schemas/DailyActivity"
+      required:
+        - day
+        - date
+        - location
+        - activities
+
+    BudgetItem:
+      type: object
+      properties:
+        category:
+          type: string
+        estimated_amount:
+          type: number
+        description:
+          type: string
+      required:
+        - category
+        - estimated_amount
+        - description
+
+    TradeoffItem:
+      type: object
+      properties:
+        description:
+          type: string
+        impact:
+          type: string
+      required:
+        - description
+        - impact
+
+    TripAnalysis:
+      type: object
+      properties:
+        trip_strategy:
+          type: string
+        destinations:
+          type: array
+          items:
+            $ref: "#/components/schemas/DestinationScore"
+        reasoning:
+          type: string
+      required:
+        - trip_strategy
+        - destinations
+        - reasoning
+
+    Itinerary:
+      type: object
+      properties:
+        id:
+          type: string
+        trip_id:
+          type: string
+        trip_strategy:
+          type: string
+        route:
+          type: array
+          items:
+            $ref: "#/components/schemas/RouteStop"
+        destinations:
+          type: array
+          items:
+            $ref: "#/components/schemas/DestinationScore"
+        daily_schedule:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailySchedule"
+        budget_breakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/BudgetItem"
+        reasoning:
+          type: string
+        tradeoffs:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradeoffItem"
+        version:
+          type: integer
+        created_at:
+          type: string
+      required:
+        - id
+        - trip_id
+        - trip_strategy
+        - route
+        - destinations
+        - daily_schedule
+        - budget_breakdown
+        - reasoning
+        - tradeoffs
+        - version
+        - created_at
+
+    Trip:
+      type: object
+      properties:
+        id:
+          type: string
+        destination:
+          type: string
+        starting_location:
+          type: string
+        start_date:
+          type: string
+        end_date:
+          type: string
+        traveler_count:
+          type: integer
+        budget:
+          type: number
+        budget_preference:
+          type: string
+        traveler_profile:
+          $ref: "#/components/schemas/TravelerProfile"
+        latest_itinerary:
+          oneOf:
+            - $ref: "#/components/schemas/Itinerary"
+            - type: "null"
+        created_at:
+          type: string
+      required:
+        - id
+        - destination
+        - starting_location
+        - start_date
+        - end_date
+        - traveler_count
+        - budget
+        - budget_preference
+        - traveler_profile
+        - latest_itinerary
+        - created_at
+
+    ChangeMade:
+      type: object
+      properties:
+        description:
+          type: string
+        type:
+          type: string
+      required:
+        - description
+        - type
+
+    TripModificationInput:
+      type: object
+      properties:
+        user_request:
+          type: string
+      required:
+        - user_request
+
+    TripModification:
+      type: object
+      properties:
+        id:
+          type: string
+        trip_id:
+          type: string
+        user_request:
+          type: string
+        changes_made:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChangeMade"
+        reasoning:
+          type: string
+        itinerary:
+          $ref: "#/components/schemas/Itinerary"
+        created_at:
+          type: string
+      required:
+        - id
+        - trip_id
+        - user_request
+        - changes_made
+        - reasoning
+        - itinerary
+        - created_at
