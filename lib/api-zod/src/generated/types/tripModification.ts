@@ -7,6 +7,7 @@
  */
 import type { ChangeMade } from './changeMade';
 import type { Itinerary } from './itinerary';
+import type { TripHealthScore } from './tripHealthScore';
 
 export interface TripModification {
   id: string;
@@ -14,6 +15,8 @@ export interface TripModification {
   user_request: string;
   changes_made: ChangeMade[];
   reasoning: string;
+  score_before: TripHealthScore | null;
+  score_after: TripHealthScore | null;
   itinerary: Itinerary;
   created_at: string;
 }

@@ -9,7 +9,18 @@ import {
   ModifyItineraryParams,
   ModifyItineraryBody,
 } from "@workspace/api-zod";
-import { analyzeTrip, generateItinerary, modifyItinerary, hasAI, type TripData } from "../../lib/ai";
+import {
+  analyzeTrip,
+  generateItinerary,
+  modifyItinerary,
+  normalizeItinerary,
+  hasAI,
+  type TripData,
+  type ItineraryData,
+  type RouteStop,
+} from "../../lib/ai";
+import { computeTripHealthScore } from "../../lib/scoring";
+import { DESTINATIONS } from "../../lib/destinations";
 
 const router: IRouter = Router();
 
@@ -30,40 +41,6 @@ async function loadLatestItinerary(tripId: string) {
   return itinerary ?? null;
 }
 
-// Helper: format trip row into API shape
-function formatTrip(trip: typeof tripsTable.$inferSelect, itinerary: typeof itinerariesTable.$inferSelect | null) {
-  return {
-    id: trip.id,
-    destination: trip.destination,
-    starting_location: trip.startingLocation,
-    start_date: trip.startDate,
-    end_date: trip.endDate,
-    traveler_count: trip.travelerCount,
-    budget: Number(trip.budget),
-    budget_preference: trip.budgetPreference,
-    traveler_profile: trip.travelerProfile as { interests: string[]; travel_style: string; preferences: string[] },
-    created_at: trip.createdAt.toISOString(),
-    latest_itinerary: itinerary ? formatItinerary(itinerary) : null,
-  };
-}
-
-// Helper: format itinerary row into API shape
-function formatItinerary(row: typeof itinerariesTable.$inferSelect) {
-  return {
-    id: row.id,
-    trip_id: row.tripId,
-    trip_strategy: row.tripStrategy,
-    route: row.route,
-    destinations: row.destinations,
-    daily_schedule: row.dailySchedule,
-    budget_breakdown: row.budgetBreakdown,
-    reasoning: row.reasoning,
-    tradeoffs: row.tradeoffs,
-    version: row.version,
-    created_at: row.createdAt.toISOString(),
-  };
-}
-
 // Helper: build TripData for AI from DB trip row
 function buildTripData(trip: typeof tripsTable.$inferSelect): TripData {
   return {
@@ -76,6 +53,72 @@ function buildTripData(trip: typeof tripsTable.$inferSelect): TripData {
     budget: Number(trip.budget),
     budget_preference: trip.budgetPreference,
     traveler_profile: trip.travelerProfile as { interests: string[]; travel_style: string; preferences: string[] },
+  };
+}
+
+// Helper: format itinerary row into API shape, with optional health score computation
+function formatItinerary(
+  row: typeof itinerariesTable.$inferSelect,
+  tripData: TripData
+) {
+  const itineraryData = normalizeItinerary({
+    trip_id: row.tripId,
+    trip_strategy: row.tripStrategy,
+    currency: row.currency as "USD",
+    total_days: row.totalDays,
+    total_nights: row.totalNights,
+    route: row.route as RouteStop[],
+    destinations: row.destinations as any,
+    daily_itinerary: row.dailyItinerary as any,
+    daily_schedule: row.dailySchedule as any,
+    budget_breakdown: row.budgetBreakdown as any,
+    budget_summary: row.budgetSummary as any,
+    reasoning: row.reasoning,
+    tradeoffs: row.tradeoffs as any,
+  }, tripData);
+
+  const health_score = computeTripHealthScore(itineraryData, tripData);
+
+  return {
+    id: row.id,
+    trip_id: row.tripId,
+    currency: itineraryData.currency,
+    total_days: itineraryData.total_days,
+    total_nights: itineraryData.total_nights,
+    trip_strategy: itineraryData.trip_strategy,
+    route: itineraryData.route,
+    destinations: itineraryData.destinations,
+    daily_itinerary: itineraryData.daily_itinerary,
+    daily_schedule: itineraryData.daily_schedule,
+    budget_breakdown: itineraryData.budget_breakdown,
+    budget_summary: itineraryData.budget_summary,
+    reasoning: itineraryData.reasoning,
+    tradeoffs: itineraryData.tradeoffs,
+    health_score,
+    version: row.version,
+    created_at: row.createdAt.toISOString(),
+  };
+}
+
+// Helper: format trip row into API shape
+function formatTrip(
+  trip: typeof tripsTable.$inferSelect,
+  itinerary: typeof itinerariesTable.$inferSelect | null
+) {
+  const tripData = buildTripData(trip);
+  return {
+    id: trip.id,
+    destination: trip.destination,
+    starting_location: trip.startingLocation,
+    start_date: trip.startDate,
+    end_date: trip.endDate,
+    traveler_count: trip.travelerCount,
+    budget: Number(trip.budget),
+    currency: trip.currency,
+    budget_preference: trip.budgetPreference,
+    traveler_profile: trip.travelerProfile as { interests: string[]; travel_style: string; preferences: string[] },
+    created_at: trip.createdAt.toISOString(),
+    latest_itinerary: itinerary ? formatItinerary(itinerary, tripData) : null,
   };
 }
 
@@ -97,6 +140,7 @@ router.post("/trips", async (req, res): Promise<void> => {
       endDate: d.end_date,
       travelerCount: d.traveler_count,
       budget: String(d.budget),
+      currency: "USD",
       budgetPreference: d.budget_preference,
       travelerProfile: d.traveler_profile,
     })
@@ -159,8 +203,8 @@ router.post("/trips/:id/generate", async (req, res): Promise<void> => {
 
   req.log.info({ tripId: trip.id, aiEnabled: hasAI() }, "Generating itinerary");
 
-  const data = buildTripData(trip);
-  const itineraryData = await generateItinerary(data);
+  const tripData = buildTripData(trip);
+  const itineraryData = await generateItinerary(tripData);
 
   // Get current latest version number
   const existing = await loadLatestItinerary(trip.id);
@@ -171,17 +215,22 @@ router.post("/trips/:id/generate", async (req, res): Promise<void> => {
     .values({
       tripId: trip.id,
       tripStrategy: itineraryData.trip_strategy,
+      currency: itineraryData.currency,
+      totalDays: itineraryData.total_days,
+      totalNights: itineraryData.total_nights,
       route: itineraryData.route,
       destinations: itineraryData.destinations,
+      dailyItinerary: itineraryData.daily_itinerary,
       dailySchedule: itineraryData.daily_schedule,
       budgetBreakdown: itineraryData.budget_breakdown,
+      budgetSummary: itineraryData.budget_summary,
       reasoning: itineraryData.reasoning,
       tradeoffs: itineraryData.tradeoffs,
       version,
     })
     .returning();
 
-  res.json(formatItinerary(saved));
+  res.json(formatItinerary(saved, tripData));
 });
 
 // POST /trips/:id/modify — AI itinerary modification
@@ -213,17 +262,30 @@ router.post("/trips/:id/modify", async (req, res): Promise<void> => {
   req.log.info({ tripId: trip.id, aiEnabled: hasAI() }, "Modifying itinerary");
 
   const tripData = buildTripData(trip);
-  const currentData = {
+
+  const currentData = normalizeItinerary({
+    trip_id: currentItinerary.tripId,
     trip_strategy: currentItinerary.tripStrategy,
-    route: currentItinerary.route as any,
+    currency: currentItinerary.currency as "USD",
+    total_days: currentItinerary.totalDays,
+    total_nights: currentItinerary.totalNights,
+    route: currentItinerary.route as RouteStop[],
     destinations: currentItinerary.destinations as any,
+    daily_itinerary: currentItinerary.dailyItinerary as any,
     daily_schedule: currentItinerary.dailySchedule as any,
     budget_breakdown: currentItinerary.budgetBreakdown as any,
+    budget_summary: currentItinerary.budgetSummary as any,
     reasoning: currentItinerary.reasoning,
     tradeoffs: currentItinerary.tradeoffs as any,
-  };
+  }, tripData);
+
+  // Compute before-score to include in response
+  const scoreBefore = computeTripHealthScore(currentData, tripData);
 
   const result = await modifyItinerary(tripData, currentData, bodyParsed.data.user_request);
+
+  // Compute after-score on the new itinerary
+  const scoreAfter = computeTripHealthScore(result.itinerary, tripData);
 
   // Save new itinerary version
   const [savedItinerary] = await db
@@ -231,10 +293,15 @@ router.post("/trips/:id/modify", async (req, res): Promise<void> => {
     .values({
       tripId: trip.id,
       tripStrategy: result.itinerary.trip_strategy,
+      currency: result.itinerary.currency,
+      totalDays: result.itinerary.total_days,
+      totalNights: result.itinerary.total_nights,
       route: result.itinerary.route,
       destinations: result.itinerary.destinations,
+      dailyItinerary: result.itinerary.daily_itinerary,
       dailySchedule: result.itinerary.daily_schedule,
       budgetBreakdown: result.itinerary.budget_breakdown,
+      budgetSummary: result.itinerary.budget_summary,
       reasoning: result.itinerary.reasoning,
       tradeoffs: result.itinerary.tradeoffs,
       version: currentItinerary.version + 1,
@@ -260,9 +327,30 @@ router.post("/trips/:id/modify", async (req, res): Promise<void> => {
     user_request: savedMod.userRequest,
     changes_made: savedMod.changesMade,
     reasoning: savedMod.reasoning,
-    itinerary: formatItinerary(savedItinerary),
+    score_before: scoreBefore,
+    score_after: scoreAfter,
+    itinerary: formatItinerary(savedItinerary, tripData),
     created_at: savedMod.createdAt.toISOString(),
   });
+});
+
+// GET /destinations — expose the scoring catalog
+router.get("/destinations", (_req, res): void => {
+  const destinations = Object.entries(DESTINATIONS).map(([name, attrs]) => ({
+    name,
+    avg_daily_cost_usd: attrs.avg_daily_cost_usd,
+    budget_level: attrs.budget_level,
+    nature: attrs.nature,
+    photography: attrs.photography,
+    food: attrs.food,
+    culture: attrs.culture,
+    uniqueness: attrs.uniqueness,
+    transport_complexity: attrs.transport_complexity,
+    crowd_level: attrs.crowd_level,
+    ideal_stay_min: attrs.ideal_stay_days.min,
+    ideal_stay_max: attrs.ideal_stay_days.max,
+  }));
+  res.json({ destinations });
 });
 
 export default router;

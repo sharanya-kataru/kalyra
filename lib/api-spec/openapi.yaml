@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: trips
     description: Trip planning operations
+  - name: destinations
+    description: Destination catalog operations
 paths:
   /healthz:
     get:
@@ -26,6 +28,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /destinations:
+    get:
+      operationId: listDestinations
+      tags: [destinations]
+      summary: List all destinations in the scoring catalog
+      responses:
+        "200":
+          description: Destination catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  destinations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CatalogDestination"
+                required:
+                  - destinations
 
   /trips:
     post:
@@ -240,6 +262,48 @@ components:
         - reasoning
         - drawbacks
 
+    CatalogDestination:
+      type: object
+      description: A destination entry from the scoring catalog
+      properties:
+        name:
+          type: string
+        avg_daily_cost_usd:
+          type: number
+        budget_level:
+          type: integer
+        nature:
+          type: integer
+        photography:
+          type: integer
+        food:
+          type: integer
+        culture:
+          type: integer
+        uniqueness:
+          type: integer
+        transport_complexity:
+          type: integer
+        crowd_level:
+          type: integer
+        ideal_stay_min:
+          type: integer
+        ideal_stay_max:
+          type: integer
+      required:
+        - name
+        - avg_daily_cost_usd
+        - budget_level
+        - nature
+        - photography
+        - food
+        - culture
+        - uniqueness
+        - transport_complexity
+        - crowd_level
+        - ideal_stay_min
+        - ideal_stay_max
+
     RouteStop:
       type: object
       properties:
@@ -297,6 +361,70 @@ components:
         - location
         - activities
 
+    DailyActivityPart:
+      type: object
+      properties:
+        activity:
+          type: string
+        description:
+          type: string
+        estimated_cost_usd:
+          type: number
+          minimum: 0
+      required:
+        - activity
+        - description
+        - estimated_cost_usd
+
+    DailyTransportation:
+      type: object
+      properties:
+        mode:
+          type: string
+        details:
+          type: string
+        duration:
+          type: string
+      required:
+        - mode
+        - details
+        - duration
+
+    DailyItinerary:
+      type: object
+      properties:
+        day:
+          type: integer
+        date:
+          type: string
+        location:
+          type: string
+        morning:
+          $ref: "#/components/schemas/DailyActivityPart"
+        afternoon:
+          $ref: "#/components/schemas/DailyActivityPart"
+        evening:
+          $ref: "#/components/schemas/DailyActivityPart"
+        food_recommendations:
+          type: array
+          items:
+            type: string
+        transportation:
+          $ref: "#/components/schemas/DailyTransportation"
+        estimated_daily_cost_usd:
+          type: number
+          minimum: 0
+      required:
+        - day
+        - date
+        - location
+        - morning
+        - afternoon
+        - evening
+        - food_recommendations
+        - transportation
+        - estimated_daily_cost_usd
+
     BudgetItem:
       type: object
       properties:
@@ -310,6 +438,48 @@ components:
         - category
         - estimated_amount
         - description
+
+    BudgetSummary:
+      type: object
+      properties:
+        currency:
+          type: string
+          enum: ["USD"]
+        total_budget:
+          type: number
+          minimum: 0
+        flights_estimated:
+          type: number
+          minimum: 0
+        accommodation_estimated:
+          type: number
+          minimum: 0
+        transportation_estimated:
+          type: number
+          minimum: 0
+        food_estimated:
+          type: number
+          minimum: 0
+        activities_estimated:
+          type: number
+          minimum: 0
+        total_estimated:
+          type: number
+        remaining_budget:
+          type: number
+        estimates_only:
+          type: boolean
+      required:
+        - currency
+        - total_budget
+        - flights_estimated
+        - accommodation_estimated
+        - transportation_estimated
+        - food_estimated
+        - activities_estimated
+        - total_estimated
+        - remaining_budget
+        - estimates_only
 
     TradeoffItem:
       type: object
@@ -338,6 +508,54 @@ components:
         - destinations
         - reasoning
 
+    TripHealthSubScore:
+      type: object
+      description: One dimension of the Trip Health Score
+      properties:
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        label:
+          type: string
+          enum: ["Excellent", "Good", "Fair", "Needs attention"]
+        explanation:
+          type: string
+      required:
+        - score
+        - label
+        - explanation
+
+    TripHealthScore:
+      type: object
+      description: Structured multi-dimensional evaluation of the itinerary
+      properties:
+        overall:
+          type: integer
+          minimum: 0
+          maximum: 100
+        overall_label:
+          type: string
+          enum: ["Excellent", "Good", "Fair", "Needs attention"]
+        experience_fit:
+          $ref: "#/components/schemas/TripHealthSubScore"
+        transportation_efficiency:
+          $ref: "#/components/schemas/TripHealthSubScore"
+        budget_efficiency:
+          $ref: "#/components/schemas/TripHealthSubScore"
+        uniqueness:
+          $ref: "#/components/schemas/TripHealthSubScore"
+        pacing:
+          $ref: "#/components/schemas/TripHealthSubScore"
+      required:
+        - overall
+        - overall_label
+        - experience_fit
+        - transportation_efficiency
+        - budget_efficiency
+        - uniqueness
+        - pacing
+
     Itinerary:
       type: object
       properties:
@@ -345,6 +563,15 @@ components:
           type: string
         trip_id:
           type: string
+        currency:
+          type: string
+          enum: ["USD"]
+        total_days:
+          type: integer
+          minimum: 1
+        total_nights:
+          type: integer
+          minimum: 1
         trip_strategy:
           type: string
         route:
@@ -355,6 +582,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DestinationScore"
+        daily_itinerary:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyItinerary"
         daily_schedule:
           type: array
           items:
@@ -363,12 +594,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BudgetItem"
+        budget_summary:
+          $ref: "#/components/schemas/BudgetSummary"
         reasoning:
           type: string
         tradeoffs:
           type: array
           items:
             $ref: "#/components/schemas/TradeoffItem"
+        health_score:
+          oneOf:
+            - $ref: "#/components/schemas/TripHealthScore"
+            - type: "null"
         version:
           type: integer
         created_at:
@@ -376,13 +613,19 @@ components:
       required:
         - id
         - trip_id
+        - currency
+        - total_days
+        - total_nights
         - trip_strategy
         - route
         - destinations
+        - daily_itinerary
         - daily_schedule
         - budget_breakdown
+        - budget_summary
         - reasoning
         - tradeoffs
+        - health_score
         - version
         - created_at
 
@@ -403,6 +646,9 @@ components:
           type: integer
         budget:
           type: number
+        currency:
+          type: string
+          enum: ["USD"]
         budget_preference:
           type: string
         traveler_profile:
@@ -421,6 +667,7 @@ components:
         - end_date
         - traveler_count
         - budget
+         - currency
         - budget_preference
         - traveler_profile
         - latest_itinerary
@@ -460,6 +707,14 @@ components:
             $ref: "#/components/schemas/ChangeMade"
         reasoning:
           type: string
+        score_before:
+          oneOf:
+            - $ref: "#/components/schemas/TripHealthScore"
+            - type: "null"
+        score_after:
+          oneOf:
+            - $ref: "#/components/schemas/TripHealthScore"
+            - type: "null"
         itinerary:
           $ref: "#/components/schemas/Itinerary"
         created_at:
@@ -470,5 +725,7 @@ components:
         - user_request
         - changes_made
         - reasoning
+        - score_before
+        - score_after
         - itinerary
         - created_at

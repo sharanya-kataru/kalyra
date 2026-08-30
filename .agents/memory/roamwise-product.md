@@ -33,3 +33,11 @@ User declined Replit AI Integrations upgrade and did not provide OPENAI_API_KEY.
 
 ## OpenAI integration pattern
 `hasAI()` checks for `OPENAI_API_KEY` at runtime. Adding the key activates real AI with no code changes needed.
+
+## Date and refinement invariants
+- Trip date ranges represent an arrival date and a departure date: calendar days are nights plus one, and route nights must equal the date difference.
+- Refinements should edit rich daily itinerary objects directly; the legacy daily schedule is a compatibility projection and must not be the source of truth for preserving unaffected content.
+
+**Why:** Treating days and nights as the same value produced incomplete itineraries, while round-tripping rich days through the legacy shape changed untouched activities.
+
+**How to apply:** Derive duration from the persisted dates at normalization boundaries, and preserve rich day fields when modifying a trip.

@@ -18,6 +18,27 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary List all destinations in the scoring catalog
+ */
+export const ListDestinationsResponse = zod.object({
+  "destinations": zod.array(zod.object({
+  "name": zod.string(),
+  "avg_daily_cost_usd": zod.number(),
+  "budget_level": zod.number(),
+  "nature": zod.number(),
+  "photography": zod.number(),
+  "food": zod.number(),
+  "culture": zod.number(),
+  "uniqueness": zod.number(),
+  "transport_complexity": zod.number(),
+  "crowd_level": zod.number(),
+  "ideal_stay_min": zod.number(),
+  "ideal_stay_max": zod.number()
+}).describe('A destination entry from the scoring catalog'))
+})
+
+
+/**
  * @summary Create a new trip
  */
 export const CreateTripBody = zod.object({
@@ -35,6 +56,48 @@ export const CreateTripBody = zod.object({
 })
 })
 
+
+
+export const createTripResponseLatestItineraryOneDailyItineraryItemMorningEstimatedCostUsdMin = 0;
+
+export const createTripResponseLatestItineraryOneDailyItineraryItemAfternoonEstimatedCostUsdMin = 0;
+
+export const createTripResponseLatestItineraryOneDailyItineraryItemEveningEstimatedCostUsdMin = 0;
+
+export const createTripResponseLatestItineraryOneDailyItineraryItemEstimatedDailyCostUsdMin = 0;
+
+export const createTripResponseLatestItineraryOneBudgetSummaryTotalBudgetMin = 0;
+
+export const createTripResponseLatestItineraryOneBudgetSummaryFlightsEstimatedMin = 0;
+
+export const createTripResponseLatestItineraryOneBudgetSummaryAccommodationEstimatedMin = 0;
+
+export const createTripResponseLatestItineraryOneBudgetSummaryTransportationEstimatedMin = 0;
+
+export const createTripResponseLatestItineraryOneBudgetSummaryFoodEstimatedMin = 0;
+
+export const createTripResponseLatestItineraryOneBudgetSummaryActivitiesEstimatedMin = 0;
+
+export const createTripResponseLatestItineraryOneHealthScoreOneOverallMin = 0;
+export const createTripResponseLatestItineraryOneHealthScoreOneOverallMax = 100;
+
+export const createTripResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMin = 0;
+export const createTripResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMax = 100;
+
+export const createTripResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMin = 0;
+export const createTripResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMax = 100;
+
+export const createTripResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMin = 0;
+export const createTripResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMax = 100;
+
+export const createTripResponseLatestItineraryOneHealthScoreOneUniquenessScoreMin = 0;
+export const createTripResponseLatestItineraryOneHealthScoreOneUniquenessScoreMax = 100;
+
+export const createTripResponseLatestItineraryOneHealthScoreOnePacingScoreMin = 0;
+export const createTripResponseLatestItineraryOneHealthScoreOnePacingScoreMax = 100;
+
+
+
 export const CreateTripResponse = zod.object({
   "id": zod.string(),
   "destination": zod.string(),
@@ -42,7 +105,8 @@ export const CreateTripResponse = zod.object({
   "start_date": zod.string(),
   "end_date": zod.string(),
   "traveler_count": zod.number(),
-  "budget": zod.number(),
+  "budget": zod.number().optional(),
+  "currency": zod.enum(['USD']).optional(),
   "budget_preference": zod.string(),
   "traveler_profile": zod.object({
   "interests": zod.array(zod.string()),
@@ -52,6 +116,9 @@ export const CreateTripResponse = zod.object({
   "latest_itinerary": zod.union([zod.object({
   "id": zod.string(),
   "trip_id": zod.string(),
+  "currency": zod.enum(['USD']),
+  "total_days": zod.number().min(1),
+  "total_nights": zod.number().min(1),
   "trip_strategy": zod.string(),
   "route": zod.array(zod.object({
   "location": zod.string(),
@@ -64,6 +131,33 @@ export const CreateTripResponse = zod.object({
   "score": zod.number(),
   "reasoning": zod.string(),
   "drawbacks": zod.string()
+})),
+  "daily_itinerary": zod.array(zod.object({
+  "day": zod.number(),
+  "date": zod.string(),
+  "location": zod.string(),
+  "morning": zod.object({
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(createTripResponseLatestItineraryOneDailyItineraryItemMorningEstimatedCostUsdMin)
+}),
+  "afternoon": zod.object({
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(createTripResponseLatestItineraryOneDailyItineraryItemAfternoonEstimatedCostUsdMin)
+}),
+  "evening": zod.object({
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(createTripResponseLatestItineraryOneDailyItineraryItemEveningEstimatedCostUsdMin)
+}),
+  "food_recommendations": zod.array(zod.string()),
+  "transportation": zod.object({
+  "mode": zod.string(),
+  "details": zod.string(),
+  "duration": zod.string()
+}),
+  "estimated_daily_cost_usd": zod.number().min(createTripResponseLatestItineraryOneDailyItineraryItemEstimatedDailyCostUsdMin)
 })),
   "daily_schedule": zod.array(zod.object({
   "day": zod.number(),
@@ -83,11 +177,52 @@ export const CreateTripResponse = zod.object({
   "estimated_amount": zod.number(),
   "description": zod.string()
 })),
+  "budget_summary": zod.object({
+  "currency": zod.enum(['USD']),
+  "total_budget": zod.number().min(createTripResponseLatestItineraryOneBudgetSummaryTotalBudgetMin),
+  "flights_estimated": zod.number().min(createTripResponseLatestItineraryOneBudgetSummaryFlightsEstimatedMin),
+  "accommodation_estimated": zod.number().min(createTripResponseLatestItineraryOneBudgetSummaryAccommodationEstimatedMin),
+  "transportation_estimated": zod.number().min(createTripResponseLatestItineraryOneBudgetSummaryTransportationEstimatedMin),
+  "food_estimated": zod.number().min(createTripResponseLatestItineraryOneBudgetSummaryFoodEstimatedMin),
+  "activities_estimated": zod.number().min(createTripResponseLatestItineraryOneBudgetSummaryActivitiesEstimatedMin),
+  "total_estimated": zod.number(),
+  "remaining_budget": zod.number(),
+  "estimates_only": zod.boolean()
+}),
   "reasoning": zod.string(),
   "tradeoffs": zod.array(zod.object({
   "description": zod.string(),
   "impact": zod.string()
 })),
+  "health_score": zod.union([zod.object({
+  "overall": zod.number().min(createTripResponseLatestItineraryOneHealthScoreOneOverallMin).max(createTripResponseLatestItineraryOneHealthScoreOneOverallMax),
+  "overall_label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "experience_fit": zod.object({
+  "score": zod.number().min(createTripResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMin).max(createTripResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "transportation_efficiency": zod.object({
+  "score": zod.number().min(createTripResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMin).max(createTripResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "budget_efficiency": zod.object({
+  "score": zod.number().min(createTripResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMin).max(createTripResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "uniqueness": zod.object({
+  "score": zod.number().min(createTripResponseLatestItineraryOneHealthScoreOneUniquenessScoreMin).max(createTripResponseLatestItineraryOneHealthScoreOneUniquenessScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "pacing": zod.object({
+  "score": zod.number().min(createTripResponseLatestItineraryOneHealthScoreOnePacingScoreMin).max(createTripResponseLatestItineraryOneHealthScoreOnePacingScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score')
+}).describe('Structured multi-dimensional evaluation of the itinerary'),zod.null()]),
   "version": zod.number(),
   "created_at": zod.string()
 }),zod.null()]),
@@ -102,6 +237,48 @@ export const GetTripParams = zod.object({
   "id": zod.coerce.string()
 })
 
+
+
+export const getTripResponseLatestItineraryOneDailyItineraryItemMorningEstimatedCostUsdMin = 0;
+
+export const getTripResponseLatestItineraryOneDailyItineraryItemAfternoonEstimatedCostUsdMin = 0;
+
+export const getTripResponseLatestItineraryOneDailyItineraryItemEveningEstimatedCostUsdMin = 0;
+
+export const getTripResponseLatestItineraryOneDailyItineraryItemEstimatedDailyCostUsdMin = 0;
+
+export const getTripResponseLatestItineraryOneBudgetSummaryTotalBudgetMin = 0;
+
+export const getTripResponseLatestItineraryOneBudgetSummaryFlightsEstimatedMin = 0;
+
+export const getTripResponseLatestItineraryOneBudgetSummaryAccommodationEstimatedMin = 0;
+
+export const getTripResponseLatestItineraryOneBudgetSummaryTransportationEstimatedMin = 0;
+
+export const getTripResponseLatestItineraryOneBudgetSummaryFoodEstimatedMin = 0;
+
+export const getTripResponseLatestItineraryOneBudgetSummaryActivitiesEstimatedMin = 0;
+
+export const getTripResponseLatestItineraryOneHealthScoreOneOverallMin = 0;
+export const getTripResponseLatestItineraryOneHealthScoreOneOverallMax = 100;
+
+export const getTripResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMin = 0;
+export const getTripResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMax = 100;
+
+export const getTripResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMin = 0;
+export const getTripResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMax = 100;
+
+export const getTripResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMin = 0;
+export const getTripResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMax = 100;
+
+export const getTripResponseLatestItineraryOneHealthScoreOneUniquenessScoreMin = 0;
+export const getTripResponseLatestItineraryOneHealthScoreOneUniquenessScoreMax = 100;
+
+export const getTripResponseLatestItineraryOneHealthScoreOnePacingScoreMin = 0;
+export const getTripResponseLatestItineraryOneHealthScoreOnePacingScoreMax = 100;
+
+
+
 export const GetTripResponse = zod.object({
   "id": zod.string(),
   "destination": zod.string(),
@@ -109,7 +286,8 @@ export const GetTripResponse = zod.object({
   "start_date": zod.string(),
   "end_date": zod.string(),
   "traveler_count": zod.number(),
-  "budget": zod.number(),
+  "budget": zod.number().optional(),
+  "currency": zod.enum(['USD']).optional(),
   "budget_preference": zod.string(),
   "traveler_profile": zod.object({
   "interests": zod.array(zod.string()),
@@ -119,6 +297,9 @@ export const GetTripResponse = zod.object({
   "latest_itinerary": zod.union([zod.object({
   "id": zod.string(),
   "trip_id": zod.string(),
+  "currency": zod.enum(['USD']),
+  "total_days": zod.number().min(1),
+  "total_nights": zod.number().min(1),
   "trip_strategy": zod.string(),
   "route": zod.array(zod.object({
   "location": zod.string(),
@@ -131,6 +312,33 @@ export const GetTripResponse = zod.object({
   "score": zod.number(),
   "reasoning": zod.string(),
   "drawbacks": zod.string()
+})),
+  "daily_itinerary": zod.array(zod.object({
+  "day": zod.number(),
+  "date": zod.string(),
+  "location": zod.string(),
+  "morning": zod.object({
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(getTripResponseLatestItineraryOneDailyItineraryItemMorningEstimatedCostUsdMin)
+}),
+  "afternoon": zod.object({
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(getTripResponseLatestItineraryOneDailyItineraryItemAfternoonEstimatedCostUsdMin)
+}),
+  "evening": zod.object({
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(getTripResponseLatestItineraryOneDailyItineraryItemEveningEstimatedCostUsdMin)
+}),
+  "food_recommendations": zod.array(zod.string()),
+  "transportation": zod.object({
+  "mode": zod.string(),
+  "details": zod.string(),
+  "duration": zod.string()
+}),
+  "estimated_daily_cost_usd": zod.number().min(getTripResponseLatestItineraryOneDailyItineraryItemEstimatedDailyCostUsdMin)
 })),
   "daily_schedule": zod.array(zod.object({
   "day": zod.number(),
@@ -150,11 +358,52 @@ export const GetTripResponse = zod.object({
   "estimated_amount": zod.number(),
   "description": zod.string()
 })),
+  "budget_summary": zod.object({
+  "currency": zod.enum(['USD']),
+  "total_budget": zod.number().min(getTripResponseLatestItineraryOneBudgetSummaryTotalBudgetMin),
+  "flights_estimated": zod.number().min(getTripResponseLatestItineraryOneBudgetSummaryFlightsEstimatedMin),
+  "accommodation_estimated": zod.number().min(getTripResponseLatestItineraryOneBudgetSummaryAccommodationEstimatedMin),
+  "transportation_estimated": zod.number().min(getTripResponseLatestItineraryOneBudgetSummaryTransportationEstimatedMin),
+  "food_estimated": zod.number().min(getTripResponseLatestItineraryOneBudgetSummaryFoodEstimatedMin),
+  "activities_estimated": zod.number().min(getTripResponseLatestItineraryOneBudgetSummaryActivitiesEstimatedMin),
+  "total_estimated": zod.number(),
+  "remaining_budget": zod.number(),
+  "estimates_only": zod.boolean()
+}),
   "reasoning": zod.string(),
   "tradeoffs": zod.array(zod.object({
   "description": zod.string(),
   "impact": zod.string()
 })),
+  "health_score": zod.union([zod.object({
+  "overall": zod.number().min(getTripResponseLatestItineraryOneHealthScoreOneOverallMin).max(getTripResponseLatestItineraryOneHealthScoreOneOverallMax),
+  "overall_label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "experience_fit": zod.object({
+  "score": zod.number().min(getTripResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMin).max(getTripResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "transportation_efficiency": zod.object({
+  "score": zod.number().min(getTripResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMin).max(getTripResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "budget_efficiency": zod.object({
+  "score": zod.number().min(getTripResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMin).max(getTripResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "uniqueness": zod.object({
+  "score": zod.number().min(getTripResponseLatestItineraryOneHealthScoreOneUniquenessScoreMin).max(getTripResponseLatestItineraryOneHealthScoreOneUniquenessScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "pacing": zod.object({
+  "score": zod.number().min(getTripResponseLatestItineraryOneHealthScoreOnePacingScoreMin).max(getTripResponseLatestItineraryOneHealthScoreOnePacingScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score')
+}).describe('Structured multi-dimensional evaluation of the itinerary'),zod.null()]),
   "version": zod.number(),
   "created_at": zod.string()
 }),zod.null()]),
@@ -188,9 +437,54 @@ export const GenerateItineraryParams = zod.object({
   "id": zod.coerce.string()
 })
 
+
+
+export const generateItineraryResponseDailyItineraryItemMorningEstimatedCostUsdMin = 0;
+
+export const generateItineraryResponseDailyItineraryItemAfternoonEstimatedCostUsdMin = 0;
+
+export const generateItineraryResponseDailyItineraryItemEveningEstimatedCostUsdMin = 0;
+
+export const generateItineraryResponseDailyItineraryItemEstimatedDailyCostUsdMin = 0;
+
+export const generateItineraryResponseBudgetSummaryTotalBudgetMin = 0;
+
+export const generateItineraryResponseBudgetSummaryFlightsEstimatedMin = 0;
+
+export const generateItineraryResponseBudgetSummaryAccommodationEstimatedMin = 0;
+
+export const generateItineraryResponseBudgetSummaryTransportationEstimatedMin = 0;
+
+export const generateItineraryResponseBudgetSummaryFoodEstimatedMin = 0;
+
+export const generateItineraryResponseBudgetSummaryActivitiesEstimatedMin = 0;
+
+export const generateItineraryResponseHealthScoreOneOverallMin = 0;
+export const generateItineraryResponseHealthScoreOneOverallMax = 100;
+
+export const generateItineraryResponseHealthScoreOneExperienceFitScoreMin = 0;
+export const generateItineraryResponseHealthScoreOneExperienceFitScoreMax = 100;
+
+export const generateItineraryResponseHealthScoreOneTransportationEfficiencyScoreMin = 0;
+export const generateItineraryResponseHealthScoreOneTransportationEfficiencyScoreMax = 100;
+
+export const generateItineraryResponseHealthScoreOneBudgetEfficiencyScoreMin = 0;
+export const generateItineraryResponseHealthScoreOneBudgetEfficiencyScoreMax = 100;
+
+export const generateItineraryResponseHealthScoreOneUniquenessScoreMin = 0;
+export const generateItineraryResponseHealthScoreOneUniquenessScoreMax = 100;
+
+export const generateItineraryResponseHealthScoreOnePacingScoreMin = 0;
+export const generateItineraryResponseHealthScoreOnePacingScoreMax = 100;
+
+
+
 export const GenerateItineraryResponse = zod.object({
   "id": zod.string(),
   "trip_id": zod.string(),
+  "currency": zod.enum(['USD']),
+  "total_days": zod.number().min(1),
+  "total_nights": zod.number().min(1),
   "trip_strategy": zod.string(),
   "route": zod.array(zod.object({
   "location": zod.string(),
@@ -203,6 +497,33 @@ export const GenerateItineraryResponse = zod.object({
   "score": zod.number(),
   "reasoning": zod.string(),
   "drawbacks": zod.string()
+})),
+  "daily_itinerary": zod.array(zod.object({
+  "day": zod.number(),
+  "date": zod.string(),
+  "location": zod.string(),
+  "morning": zod.object({
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(generateItineraryResponseDailyItineraryItemMorningEstimatedCostUsdMin)
+}),
+  "afternoon": zod.object({
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(generateItineraryResponseDailyItineraryItemAfternoonEstimatedCostUsdMin)
+}),
+  "evening": zod.object({
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(generateItineraryResponseDailyItineraryItemEveningEstimatedCostUsdMin)
+}),
+  "food_recommendations": zod.array(zod.string()),
+  "transportation": zod.object({
+  "mode": zod.string(),
+  "details": zod.string(),
+  "duration": zod.string()
+}),
+  "estimated_daily_cost_usd": zod.number().min(generateItineraryResponseDailyItineraryItemEstimatedDailyCostUsdMin)
 })),
   "daily_schedule": zod.array(zod.object({
   "day": zod.number(),
@@ -222,11 +543,52 @@ export const GenerateItineraryResponse = zod.object({
   "estimated_amount": zod.number(),
   "description": zod.string()
 })),
+  "budget_summary": zod.object({
+  "currency": zod.enum(['USD']),
+  "total_budget": zod.number().min(generateItineraryResponseBudgetSummaryTotalBudgetMin),
+  "flights_estimated": zod.number().min(generateItineraryResponseBudgetSummaryFlightsEstimatedMin),
+  "accommodation_estimated": zod.number().min(generateItineraryResponseBudgetSummaryAccommodationEstimatedMin),
+  "transportation_estimated": zod.number().min(generateItineraryResponseBudgetSummaryTransportationEstimatedMin),
+  "food_estimated": zod.number().min(generateItineraryResponseBudgetSummaryFoodEstimatedMin),
+  "activities_estimated": zod.number().min(generateItineraryResponseBudgetSummaryActivitiesEstimatedMin),
+  "total_estimated": zod.number(),
+  "remaining_budget": zod.number(),
+  "estimates_only": zod.boolean()
+}),
   "reasoning": zod.string(),
   "tradeoffs": zod.array(zod.object({
   "description": zod.string(),
   "impact": zod.string()
 })),
+  "health_score": zod.union([zod.object({
+  "overall": zod.number().min(generateItineraryResponseHealthScoreOneOverallMin).max(generateItineraryResponseHealthScoreOneOverallMax),
+  "overall_label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "experience_fit": zod.object({
+  "score": zod.number().min(generateItineraryResponseHealthScoreOneExperienceFitScoreMin).max(generateItineraryResponseHealthScoreOneExperienceFitScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "transportation_efficiency": zod.object({
+  "score": zod.number().min(generateItineraryResponseHealthScoreOneTransportationEfficiencyScoreMin).max(generateItineraryResponseHealthScoreOneTransportationEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "budget_efficiency": zod.object({
+  "score": zod.number().min(generateItineraryResponseHealthScoreOneBudgetEfficiencyScoreMin).max(generateItineraryResponseHealthScoreOneBudgetEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "uniqueness": zod.object({
+  "score": zod.number().min(generateItineraryResponseHealthScoreOneUniquenessScoreMin).max(generateItineraryResponseHealthScoreOneUniquenessScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "pacing": zod.object({
+  "score": zod.number().min(generateItineraryResponseHealthScoreOnePacingScoreMin).max(generateItineraryResponseHealthScoreOnePacingScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score')
+}).describe('Structured multi-dimensional evaluation of the itinerary'),zod.null()]),
   "version": zod.number(),
   "created_at": zod.string()
 })
@@ -243,6 +605,84 @@ export const ModifyItineraryBody = zod.object({
   "user_request": zod.string()
 })
 
+export const modifyItineraryResponseScoreBeforeOneOverallMin = 0;
+export const modifyItineraryResponseScoreBeforeOneOverallMax = 100;
+
+export const modifyItineraryResponseScoreBeforeOneExperienceFitScoreMin = 0;
+export const modifyItineraryResponseScoreBeforeOneExperienceFitScoreMax = 100;
+
+export const modifyItineraryResponseScoreBeforeOneTransportationEfficiencyScoreMin = 0;
+export const modifyItineraryResponseScoreBeforeOneTransportationEfficiencyScoreMax = 100;
+
+export const modifyItineraryResponseScoreBeforeOneBudgetEfficiencyScoreMin = 0;
+export const modifyItineraryResponseScoreBeforeOneBudgetEfficiencyScoreMax = 100;
+
+export const modifyItineraryResponseScoreBeforeOneUniquenessScoreMin = 0;
+export const modifyItineraryResponseScoreBeforeOneUniquenessScoreMax = 100;
+
+export const modifyItineraryResponseScoreBeforeOnePacingScoreMin = 0;
+export const modifyItineraryResponseScoreBeforeOnePacingScoreMax = 100;
+
+export const modifyItineraryResponseScoreAfterOneOverallMin = 0;
+export const modifyItineraryResponseScoreAfterOneOverallMax = 100;
+
+export const modifyItineraryResponseScoreAfterOneExperienceFitScoreMin = 0;
+export const modifyItineraryResponseScoreAfterOneExperienceFitScoreMax = 100;
+
+export const modifyItineraryResponseScoreAfterOneTransportationEfficiencyScoreMin = 0;
+export const modifyItineraryResponseScoreAfterOneTransportationEfficiencyScoreMax = 100;
+
+export const modifyItineraryResponseScoreAfterOneBudgetEfficiencyScoreMin = 0;
+export const modifyItineraryResponseScoreAfterOneBudgetEfficiencyScoreMax = 100;
+
+export const modifyItineraryResponseScoreAfterOneUniquenessScoreMin = 0;
+export const modifyItineraryResponseScoreAfterOneUniquenessScoreMax = 100;
+
+export const modifyItineraryResponseScoreAfterOnePacingScoreMin = 0;
+export const modifyItineraryResponseScoreAfterOnePacingScoreMax = 100;
+
+
+
+export const modifyItineraryResponseItineraryDailyItineraryItemMorningEstimatedCostUsdMin = 0;
+
+export const modifyItineraryResponseItineraryDailyItineraryItemAfternoonEstimatedCostUsdMin = 0;
+
+export const modifyItineraryResponseItineraryDailyItineraryItemEveningEstimatedCostUsdMin = 0;
+
+export const modifyItineraryResponseItineraryDailyItineraryItemEstimatedDailyCostUsdMin = 0;
+
+export const modifyItineraryResponseItineraryBudgetSummaryTotalBudgetMin = 0;
+
+export const modifyItineraryResponseItineraryBudgetSummaryFlightsEstimatedMin = 0;
+
+export const modifyItineraryResponseItineraryBudgetSummaryAccommodationEstimatedMin = 0;
+
+export const modifyItineraryResponseItineraryBudgetSummaryTransportationEstimatedMin = 0;
+
+export const modifyItineraryResponseItineraryBudgetSummaryFoodEstimatedMin = 0;
+
+export const modifyItineraryResponseItineraryBudgetSummaryActivitiesEstimatedMin = 0;
+
+export const modifyItineraryResponseItineraryHealthScoreOneOverallMin = 0;
+export const modifyItineraryResponseItineraryHealthScoreOneOverallMax = 100;
+
+export const modifyItineraryResponseItineraryHealthScoreOneExperienceFitScoreMin = 0;
+export const modifyItineraryResponseItineraryHealthScoreOneExperienceFitScoreMax = 100;
+
+export const modifyItineraryResponseItineraryHealthScoreOneTransportationEfficiencyScoreMin = 0;
+export const modifyItineraryResponseItineraryHealthScoreOneTransportationEfficiencyScoreMax = 100;
+
+export const modifyItineraryResponseItineraryHealthScoreOneBudgetEfficiencyScoreMin = 0;
+export const modifyItineraryResponseItineraryHealthScoreOneBudgetEfficiencyScoreMax = 100;
+
+export const modifyItineraryResponseItineraryHealthScoreOneUniquenessScoreMin = 0;
+export const modifyItineraryResponseItineraryHealthScoreOneUniquenessScoreMax = 100;
+
+export const modifyItineraryResponseItineraryHealthScoreOnePacingScoreMin = 0;
+export const modifyItineraryResponseItineraryHealthScoreOnePacingScoreMax = 100;
+
+
+
 export const ModifyItineraryResponse = zod.object({
   "id": zod.string(),
   "trip_id": zod.string(),
@@ -252,9 +692,70 @@ export const ModifyItineraryResponse = zod.object({
   "type": zod.string()
 })),
   "reasoning": zod.string(),
+  "score_before": zod.union([zod.object({
+  "overall": zod.number().min(modifyItineraryResponseScoreBeforeOneOverallMin).max(modifyItineraryResponseScoreBeforeOneOverallMax),
+  "overall_label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "experience_fit": zod.object({
+  "score": zod.number().min(modifyItineraryResponseScoreBeforeOneExperienceFitScoreMin).max(modifyItineraryResponseScoreBeforeOneExperienceFitScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "transportation_efficiency": zod.object({
+  "score": zod.number().min(modifyItineraryResponseScoreBeforeOneTransportationEfficiencyScoreMin).max(modifyItineraryResponseScoreBeforeOneTransportationEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "budget_efficiency": zod.object({
+  "score": zod.number().min(modifyItineraryResponseScoreBeforeOneBudgetEfficiencyScoreMin).max(modifyItineraryResponseScoreBeforeOneBudgetEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "uniqueness": zod.object({
+  "score": zod.number().min(modifyItineraryResponseScoreBeforeOneUniquenessScoreMin).max(modifyItineraryResponseScoreBeforeOneUniquenessScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "pacing": zod.object({
+  "score": zod.number().min(modifyItineraryResponseScoreBeforeOnePacingScoreMin).max(modifyItineraryResponseScoreBeforeOnePacingScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score')
+}).describe('Structured multi-dimensional evaluation of the itinerary'),zod.null()]),
+  "score_after": zod.union([zod.object({
+  "overall": zod.number().min(modifyItineraryResponseScoreAfterOneOverallMin).max(modifyItineraryResponseScoreAfterOneOverallMax),
+  "overall_label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "experience_fit": zod.object({
+  "score": zod.number().min(modifyItineraryResponseScoreAfterOneExperienceFitScoreMin).max(modifyItineraryResponseScoreAfterOneExperienceFitScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "transportation_efficiency": zod.object({
+  "score": zod.number().min(modifyItineraryResponseScoreAfterOneTransportationEfficiencyScoreMin).max(modifyItineraryResponseScoreAfterOneTransportationEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "budget_efficiency": zod.object({
+  "score": zod.number().min(modifyItineraryResponseScoreAfterOneBudgetEfficiencyScoreMin).max(modifyItineraryResponseScoreAfterOneBudgetEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "uniqueness": zod.object({
+  "score": zod.number().min(modifyItineraryResponseScoreAfterOneUniquenessScoreMin).max(modifyItineraryResponseScoreAfterOneUniquenessScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "pacing": zod.object({
+  "score": zod.number().min(modifyItineraryResponseScoreAfterOnePacingScoreMin).max(modifyItineraryResponseScoreAfterOnePacingScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score')
+}).describe('Structured multi-dimensional evaluation of the itinerary'),zod.null()]),
   "itinerary": zod.object({
   "id": zod.string(),
   "trip_id": zod.string(),
+  "currency": zod.enum(['USD']),
+  "total_days": zod.number().min(1),
+  "total_nights": zod.number().min(1),
   "trip_strategy": zod.string(),
   "route": zod.array(zod.object({
   "location": zod.string(),
@@ -267,6 +768,33 @@ export const ModifyItineraryResponse = zod.object({
   "score": zod.number(),
   "reasoning": zod.string(),
   "drawbacks": zod.string()
+})),
+  "daily_itinerary": zod.array(zod.object({
+  "day": zod.number(),
+  "date": zod.string(),
+  "location": zod.string(),
+  "morning": zod.object({
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(modifyItineraryResponseItineraryDailyItineraryItemMorningEstimatedCostUsdMin)
+}),
+  "afternoon": zod.object({
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(modifyItineraryResponseItineraryDailyItineraryItemAfternoonEstimatedCostUsdMin)
+}),
+  "evening": zod.object({
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(modifyItineraryResponseItineraryDailyItineraryItemEveningEstimatedCostUsdMin)
+}),
+  "food_recommendations": zod.array(zod.string()),
+  "transportation": zod.object({
+  "mode": zod.string(),
+  "details": zod.string(),
+  "duration": zod.string()
+}),
+  "estimated_daily_cost_usd": zod.number().min(modifyItineraryResponseItineraryDailyItineraryItemEstimatedDailyCostUsdMin)
 })),
   "daily_schedule": zod.array(zod.object({
   "day": zod.number(),
@@ -286,11 +814,52 @@ export const ModifyItineraryResponse = zod.object({
   "estimated_amount": zod.number(),
   "description": zod.string()
 })),
+  "budget_summary": zod.object({
+  "currency": zod.enum(['USD']),
+  "total_budget": zod.number().min(modifyItineraryResponseItineraryBudgetSummaryTotalBudgetMin),
+  "flights_estimated": zod.number().min(modifyItineraryResponseItineraryBudgetSummaryFlightsEstimatedMin),
+  "accommodation_estimated": zod.number().min(modifyItineraryResponseItineraryBudgetSummaryAccommodationEstimatedMin),
+  "transportation_estimated": zod.number().min(modifyItineraryResponseItineraryBudgetSummaryTransportationEstimatedMin),
+  "food_estimated": zod.number().min(modifyItineraryResponseItineraryBudgetSummaryFoodEstimatedMin),
+  "activities_estimated": zod.number().min(modifyItineraryResponseItineraryBudgetSummaryActivitiesEstimatedMin),
+  "total_estimated": zod.number(),
+  "remaining_budget": zod.number(),
+  "estimates_only": zod.boolean()
+}),
   "reasoning": zod.string(),
   "tradeoffs": zod.array(zod.object({
   "description": zod.string(),
   "impact": zod.string()
 })),
+  "health_score": zod.union([zod.object({
+  "overall": zod.number().min(modifyItineraryResponseItineraryHealthScoreOneOverallMin).max(modifyItineraryResponseItineraryHealthScoreOneOverallMax),
+  "overall_label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "experience_fit": zod.object({
+  "score": zod.number().min(modifyItineraryResponseItineraryHealthScoreOneExperienceFitScoreMin).max(modifyItineraryResponseItineraryHealthScoreOneExperienceFitScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "transportation_efficiency": zod.object({
+  "score": zod.number().min(modifyItineraryResponseItineraryHealthScoreOneTransportationEfficiencyScoreMin).max(modifyItineraryResponseItineraryHealthScoreOneTransportationEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "budget_efficiency": zod.object({
+  "score": zod.number().min(modifyItineraryResponseItineraryHealthScoreOneBudgetEfficiencyScoreMin).max(modifyItineraryResponseItineraryHealthScoreOneBudgetEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "uniqueness": zod.object({
+  "score": zod.number().min(modifyItineraryResponseItineraryHealthScoreOneUniquenessScoreMin).max(modifyItineraryResponseItineraryHealthScoreOneUniquenessScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "pacing": zod.object({
+  "score": zod.number().min(modifyItineraryResponseItineraryHealthScoreOnePacingScoreMin).max(modifyItineraryResponseItineraryHealthScoreOnePacingScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score')
+}).describe('Structured multi-dimensional evaluation of the itinerary'),zod.null()]),
   "version": zod.number(),
   "created_at": zod.string()
 }),

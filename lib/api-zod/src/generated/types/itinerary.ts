@@ -6,21 +6,33 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BudgetItem } from './budgetItem';
+import type { BudgetSummary } from './budgetSummary';
+import type { DailyItinerary } from './dailyItinerary';
 import type { DailySchedule } from './dailySchedule';
 import type { DestinationScore } from './destinationScore';
+import type { ItineraryCurrency } from './itineraryCurrency';
 import type { RouteStop } from './routeStop';
 import type { TradeoffItem } from './tradeoffItem';
+import type { TripHealthScore } from './tripHealthScore';
 
 export interface Itinerary {
   id: string;
   trip_id: string;
+  currency: ItineraryCurrency;
+  /** @minimum 1 */
+  total_days: number;
+  /** @minimum 1 */
+  total_nights: number;
   trip_strategy: string;
   route: RouteStop[];
   destinations: DestinationScore[];
+  daily_itinerary: DailyItinerary[];
   daily_schedule: DailySchedule[];
   budget_breakdown: BudgetItem[];
+  budget_summary: BudgetSummary;
   reasoning: string;
   tradeoffs: TradeoffItem[];
+  health_score: TripHealthScore | null;
   version: number;
   created_at: string;
 }

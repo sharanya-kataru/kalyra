@@ -7,6 +7,7 @@
  */
 import type { Itinerary } from './itinerary';
 import type { TravelerProfile } from './travelerProfile';
+import type { TripCurrency } from './tripCurrency';
 
 export interface Trip {
   id: string;
@@ -15,7 +16,8 @@ export interface Trip {
   start_date: string;
   end_date: string;
   traveler_count: number;
-  budget: number;
+  budget?: number;
+  currency?: TripCurrency;
   budget_preference: string;
   traveler_profile: TravelerProfile;
   latest_itinerary: Itinerary | null;

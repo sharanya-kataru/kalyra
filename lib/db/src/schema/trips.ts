@@ -10,6 +10,7 @@ export const tripsTable = pgTable("trips", {
   endDate: text("end_date").notNull(),
   travelerCount: integer("traveler_count").notNull(),
   budget: numeric("budget", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("USD"),
   budgetPreference: text("budget_preference").notNull(),
   travelerProfile: jsonb("traveler_profile").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

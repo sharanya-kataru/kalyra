@@ -10,7 +10,7 @@ const planSteps = [
   { key: 'startingLocation', eyebrow: 'The first step sets the rhythm', title: 'Where will you begin?', hint: "A city, an airport, or wherever you'll land.", type: 'text' },
   { key: 'dates', eyebrow: 'Timing changes everything', title: 'When are you going?', hint: 'Even a rough window helps us read the season.', type: 'text' },
   { key: 'travelerCount', eyebrow: 'A route should fit the company', title: "Who's coming along?", hint: 'This changes the pace, the stays, and the shape of your days.', type: 'choice', options: ['Just me', 'A partner', 'Friends', 'Family'] },
-  { key: 'budget', eyebrow: 'Make room for what matters', title: 'What feels comfortable?', hint: 'A total trip budget, excluding international flights.', type: 'choice', options: ['€900–1,400', '€1,400–1,800', '€1,800–2,400', '€2,400+'] },
+  { key: 'budget', eyebrow: 'Make room for what matters', title: 'What feels comfortable?', hint: 'A total trip budget in USD, excluding international flights.', type: 'choice', options: ['$900–1,400', '$1,400–1,800', '$1,800–2,400', '$2,400+'] },
   { key: 'budgetPreference', eyebrow: "There's no wrong answer", title: 'Where should we spend well?', hint: "We'll use this to make the right trade-offs.", type: 'choice', options: ['Keep it lean', 'Balance', 'A few beautiful splurges'] },
   { key: 'pace', eyebrow: 'The most important detail', title: 'How should it feel?', hint: 'Think about how you want to come home feeling.', type: 'choice', options: ['Unhurried', 'A little of everything', 'See it all'] },
 ];
@@ -59,20 +59,76 @@ export default function Plan() {
   const finish = step === planSteps.length - 1;
   const canNext = Boolean(value);
 
+  const parseDateRange = (input: string): [string, string] | null => {
+    const normalized = input.trim().replace(/\s+/g, ' ');
+    const compact = normalized.match(/^(\d{1,2})[–—](\d{1,2})\s+([A-Za-z]+)(?:\s+(20\d{2}))?$/);
+    if (compact) {
+      const months: Record<string, string> = {
+        january: '01', jan: '01', february: '02', feb: '02', march: '03', mar: '03',
+        april: '04', apr: '04', may: '05', june: '06', jun: '06', july: '07', jul: '07',
+        august: '08', aug: '08', september: '09', sep: '09', sept: '09', october: '10',
+        oct: '10', november: '11', nov: '11', december: '12', dec: '12',
+      };
+      const month = months[compact[3].toLowerCase()];
+      const year = compact[4] ?? String(new Date().getFullYear());
+      if (month) {
+        return [
+          `${year}-${month}-${compact[1].padStart(2, '0')}`,
+          `${year}-${month}-${compact[2].padStart(2, '0')}`,
+        ];
+      }
+    }
+    const parts = normalized.split(/\s+(?:to|until|through)\s+|[–—]/i).map((part) => part.trim()).filter(Boolean);
+    if (parts.length !== 2) return null;
+
+    const iso = (value: string): string | null => {
+      const match = value.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+      return match ? `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}` : null;
+    };
+    const startIso = iso(parts[0]);
+    const endIso = iso(parts[1]);
+    if (startIso && endIso) return [startIso, endIso];
+
+    const year = normalized.match(/\b(20\d{2})\b/)?.[1] ?? String(new Date().getFullYear());
+    const months: Record<string, string> = {
+      january: '01', jan: '01', february: '02', feb: '02', march: '03', mar: '03',
+      april: '04', apr: '04', may: '05', june: '06', jun: '06', july: '07', jul: '07',
+      august: '08', aug: '08', september: '09', sep: '09', sept: '09', october: '10',
+      oct: '10', november: '11', nov: '11', december: '12', dec: '12',
+    };
+    const sharedMonth = normalized.match(/\b([A-Za-z]+)\s+\d{1,2}\b/)?.[1]?.toLowerCase();
+    const first = parts[0].replace(/,/g, '').match(/(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)/i);
+    const second = parts[1].replace(/,/g, '').match(/(\d{1,2})(?:st|nd|rd|th)?(?:\s+([A-Za-z]+))?/i);
+    if (!first || !second) return null;
+    const startMonth = months[first[2].toLowerCase()];
+    const endMonth = months[(second[2] ?? sharedMonth ?? first[2]).toLowerCase()];
+    if (!startMonth || !endMonth) return null;
+    return [
+      `${year}-${startMonth}-${first[1].padStart(2, '0')}`,
+      `${year}-${endMonth}-${second[1].padStart(2, '0')}`,
+    ];
+  };
+
   const handleNext = () => {
     if (!canNext) return;
     
     if (finish) {
-      // Parse dates (simple split on em-dash or hyphen)
-      const datesParts = dates.split(/[–—-]/);
-      const startDateStr = datesParts[0]?.trim() || '';
-      const endDateStr = datesParts[1]?.trim() || '';
+      const parsedDates = parseDateRange(dates);
+      if (!parsedDates) {
+        toast({
+          title: 'Enter a date range',
+          description: 'Use dates like 2026-09-01 to 2026-09-10.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      const [startDateStr, endDateStr] = parsedDates;
       
       // Parse budget range
-      const budgetParts = budget.replace('€', '').split('–');
-      const budgetMid = budgetParts.length === 2 
-        ? (parseInt(budgetParts[0].replace(/,/g, '')) + parseInt(budgetParts[1].replace(/,/g, ''))) / 2
-        : parseInt(budgetParts[0]?.replace(/[,+]/g, '') || '2000');
+      const budgetParts = budget.replace('$', '').split('–').map((part) => Number(part.replace(/[,+]/g, '')));
+      const budgetMid = budgetParts.length === 2
+        ? Math.round((budgetParts[0] + budgetParts[1]) / 2)
+        : Number(budgetParts[0]) || 2000;
 
       // Parse traveler count
       const travelerCountMap: Record<string, number> = {
@@ -183,7 +239,7 @@ export default function Plan() {
                         ? 'e.g. The Alps, but not too much hiking'
                         : current.key === 'startingLocation'
                         ? 'e.g. Amsterdam'
-                        : 'e.g. 18–29 September 2025'
+                        : 'e.g. 2026-09-01 to 2026-09-10'
                     }
                     data-testid={`input-plan-${current.key}`}
                   />

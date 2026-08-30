@@ -23,6 +23,7 @@ import type {
   ErrorResponse,
   HealthStatus,
   Itinerary,
+  ListDestinations200,
   Trip,
   TripAnalysis,
   TripInput,
@@ -123,6 +124,83 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getHealthCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListDestinationsUrl = () => {
+
+
+
+
+  return `/api/destinations`
+}
+
+/**
+ * @summary List all destinations in the scoring catalog
+ */
+export const listDestinations = async ( options?: RequestInit): Promise<ListDestinations200> => {
+
+  return customFetch<ListDestinations200>(getListDestinationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDestinationsQueryKey = () => {
+    return [
+    `/api/destinations`
+    ] as const;
+    }
+
+
+export const getListDestinationsQueryOptions = <TData = Awaited<ReturnType<typeof listDestinations>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDestinations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDestinationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDestinations>>> = ({ signal }) => listDestinations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDestinations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDestinationsQueryResult = NonNullable<Awaited<ReturnType<typeof listDestinations>>>
+export type ListDestinationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all destinations in the scoring catalog
+ */
+
+export function useListDestinations<TData = Awaited<ReturnType<typeof listDestinations>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDestinations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDestinationsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

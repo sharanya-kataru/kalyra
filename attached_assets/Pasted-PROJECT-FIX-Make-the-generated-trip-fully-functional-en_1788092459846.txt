@@ -1,0 +1,380 @@
+PROJECT FIX: Make the generated trip fully functional end-to-end.
+
+The current app still has incomplete trip-generation behavior.
+
+Observed problems:
+- Budget input/output is using euros. The product should use USD by default.
+- Generated trips show 0 nights even when dates are provided.
+- Average destination cost sometimes displays ~$NaN/day.
+- The route may show only a single broad country instead of usable destinations/cities.
+- The Day By Day tab does not yet produce a complete itinerary.
+- Destination cards are incomplete.
+- Budget breakdown appears to be estimated without enough real trip data.
+- The trip looks visually complete but is not functionally complete.
+
+Do not redesign the UI. Keep the current look and layout.
+
+Your task is to make the existing app function correctly.
+
+STEP 1: AUDIT CURRENT DATA FLOW
+
+Before changing code, trace the complete flow:
+
+Questionnaire
+→ POST /api/trips
+→ analyze
+→ generate
+→ saved itinerary
+→ trip dashboard
+
+Identify exactly where:
+- nights are becoming 0
+- NaN costs are created
+- destination names are too broad
+- day-by-day data is missing
+- currency is being set to EUR
+
+Explain the root causes before implementing fixes.
+
+STEP 2: CHANGE CURRENCY TO USD
+
+Make USD the default currency everywhere.
+
+Questionnaire:
+- budget field should say "$"
+- placeholder example: "$3,000"
+- label should clearly indicate USD
+
+Backend:
+- store currency as "USD"
+- all budget calculations should use USD
+- AI prompts should specify USD
+- generated JSON should return USD amounts
+
+Frontend:
+- render "$1,600", "$480", etc.
+- remove euro formatting unless the user explicitly chooses another currency later
+
+Do not add currency conversion yet.
+
+STEP 3: FIX TRIP DURATION
+
+Use the user's start_date and end_date to calculate trip length.
+
+For example:
+September 1 to September 10 should produce the correct number of trip days and nights.
+
+Create one shared backend utility for:
+- total_days
+- total_nights
+
+Never trust the AI to calculate this.
+
+The AI should receive total_days and total_nights as fixed constraints.
+
+The total number of itinerary days must match the calculated trip duration.
+
+STEP 4: FIX NaN AND INVALID VALUES
+
+No UI should ever display:
+- NaN
+- undefined
+- null
+- blank cost values
+
+Validate all numeric fields before returning data.
+
+If a value is unavailable:
+show:
+"Estimate unavailable"
+
+instead of NaN.
+
+Add backend validation for:
+- budget
+- daily_cost
+- nights
+- transportation cost
+- accommodation
+- food
+- activities
+
+STEP 5: GENERATE REAL DESTINATION STRUCTURE
+
+If the user enters a country such as:
+
+"Guatemala"
+
+do not treat the entire country as one itinerary destination.
+
+The planning engine should propose specific bases/cities/regions that match the traveler.
+
+Example:
+Guatemala could become:
+- Antigua
+- Lake Atitlán
+- Guatemala City
+- Flores / Tikal
+
+The AI should decide which places are appropriate based on:
+- interests
+- duration
+- budget
+- pace
+- transportation efficiency
+
+The route should contain specific destinations/bases, not only a country name.
+
+STEP 6: BUILD COMPLETE DAY-BY-DAY ITINERARY
+
+The generate endpoint must return one structured object for every trip day.
+
+Schema:
+
+daily_itinerary: [
+  {
+    "day": 1,
+    "date": "YYYY-MM-DD",
+    "location": "",
+    "morning": {
+      "activity": "",
+      "description": "",
+      "estimated_cost_usd": 0
+    },
+    "afternoon": {
+      "activity": "",
+      "description": "",
+      "estimated_cost_usd": 0
+    },
+    "evening": {
+      "activity": "",
+      "description": "",
+      "estimated_cost_usd": 0
+    },
+    "food_recommendations": [],
+    "transportation": {
+      "mode": "",
+      "details": "",
+      "duration": ""
+    },
+    "estimated_daily_cost_usd": 0
+  }
+]
+
+Requirements:
+- number of itinerary entries must equal trip days
+- every day must have a location
+- activities must be realistic for that destination
+- avoid impossible timing
+- transfer days should include lighter activity schedules
+- final day should account for departure
+
+The Day By Day tab must render this data.
+
+STEP 7: ADD REAL-WORLD PLACE DATA
+
+The AI should not invent every attraction or place.
+
+Create a modular external-data layer.
+
+Start with a Places provider.
+
+Preferred first integration:
+Geoapify Places API.
+
+Use it to retrieve real:
+- attractions
+- landmarks
+- parks
+- viewpoints
+- museums
+- restaurants
+- cultural sites
+- nature locations
+
+Flow:
+
+AI decides destination/base
+→ Places API retrieves real options
+→ rank options based on user interests
+→ AI chooses realistic activities
+→ itinerary is generated
+
+Create a provider interface so Geoapify can later be replaced or supplemented.
+
+Example:
+
+PlacesProvider
+- search_attractions()
+- search_restaurants()
+- search_nature()
+- search_points_of_interest()
+
+Do not hardcode Geoapify calls throughout business logic.
+
+Use environment variable:
+
+GEOAPIFY_API_KEY
+
+If the key is missing:
+- use the current AI/fallback behavior
+- do not crash
+
+STEP 8: DO NOT ADD FLIGHTS AND HOTELS YET
+
+Do not implement flight booking or hotel booking yet.
+
+However, prepare interfaces for future providers:
+
+FlightProvider
+HotelProvider
+ActivityProvider
+PlacesProvider
+
+Current budget values for flights/hotels should clearly say "estimated" unless live API data is available.
+
+Do not make fake live-price claims.
+
+STEP 9: IMPROVE BUDGET CALCULATION
+
+Create a structured budget model:
+
+{
+  "currency": "USD",
+  "total_budget": 3000,
+  "flights_estimated": 0,
+  "accommodation_estimated": 0,
+  "transportation_estimated": 0,
+  "food_estimated": 0,
+  "activities_estimated": 0,
+  "total_estimated": 0,
+  "remaining_budget": 0
+}
+
+The totals must be calculated by code, not by the AI.
+
+Never allow:
+NaN
+negative remaining values without explanation
+components that do not add up
+
+The AI can recommend spending priorities, but arithmetic must be performed deterministically in backend code.
+
+STEP 10: IMPROVE TRIP GENERATION CONTRACT
+
+The generate endpoint should return:
+
+{
+  "trip_id": "",
+  "trip_strategy": "",
+  "currency": "USD",
+  "total_days": 0,
+  "total_nights": 0,
+
+  "route": [
+    {
+      "destination": "",
+      "country": "",
+      "nights": 0,
+      "why_selected": "",
+      "experience_score": 0
+    }
+  ],
+
+  "daily_itinerary": [],
+
+  "budget_breakdown": {},
+
+  "practical_notes": {
+    "transportation": [],
+    "reservations": [],
+    "packing": [],
+    "local_tips": []
+  },
+
+  "tradeoffs": [],
+
+  "recommendations": []
+}
+
+Validate this schema before saving it.
+
+STEP 11: REFINE FEATURE
+
+The "Refine your trip" feature must modify the current trip rather than regenerating an unrelated one.
+
+Examples:
+- "Add more nature"
+- "Make this cheaper"
+- "Spend less time in Antigua"
+- "Add Lake Atitlán"
+- "Make Day 4 less busy"
+
+The modify endpoint should:
+1. load current itinerary
+2. understand requested change
+3. preserve unaffected days
+4. update affected destinations/days
+5. recalculate budget
+6. recalculate trip score
+7. save a new itinerary version
+
+STEP 12: TEST END-TO-END
+
+Create at least these test scenarios:
+
+TEST 1:
+Destination: Guatemala
+Dates: 10 days
+Budget: $3000
+Interests:
+- nature
+- mountains
+- local food
+Style:
+balanced
+
+Expected:
+- multiple specific destinations
+- correct day/night count
+- complete day-by-day itinerary
+- USD everywhere
+- no NaN
+- budget totals add up
+
+TEST 2:
+Italy + Switzerland
+10 days
+$4000
+Photography + food + nature
+
+Expected:
+- logical multi-city route
+- no impossible travel sequence
+- day-by-day itinerary
+- transfer days represented
+- budget totals valid
+
+TEST 3:
+Refine:
+"Make this trip slower and add more nature."
+
+Expected:
+- existing itinerary updated
+- fewer rushed days
+- affected days change
+- modification history saved
+
+Do not declare the task complete until all three flows work.
+
+FINAL OUTPUT
+
+After implementation, report:
+
+1. Root causes found
+2. Files modified
+3. APIs added
+4. Environment variables required
+5. What uses live data
+6. What still uses estimates
+7. Test results for the three scenarios

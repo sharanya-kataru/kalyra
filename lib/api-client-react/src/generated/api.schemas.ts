@@ -37,6 +37,24 @@ export interface DestinationScore {
   drawbacks: string;
 }
 
+/**
+ * A destination entry from the scoring catalog
+ */
+export interface CatalogDestination {
+  name: string;
+  avg_daily_cost_usd: number;
+  budget_level: number;
+  nature: number;
+  photography: number;
+  food: number;
+  culture: number;
+  uniqueness: number;
+  transport_complexity: number;
+  crowd_level: number;
+  ideal_stay_min: number;
+  ideal_stay_max: number;
+}
+
 export interface RouteStop {
   location: string;
   nights: number;
@@ -62,10 +80,62 @@ export interface DailySchedule {
   activities: DailyActivity;
 }
 
+export interface DailyActivityPart {
+  activity: string;
+  description: string;
+  /** @minimum 0 */
+  estimated_cost_usd: number;
+}
+
+export interface DailyTransportation {
+  mode: string;
+  details: string;
+  duration: string;
+}
+
+export interface DailyItinerary {
+  day: number;
+  date: string;
+  location: string;
+  morning: DailyActivityPart;
+  afternoon: DailyActivityPart;
+  evening: DailyActivityPart;
+  food_recommendations: string[];
+  transportation: DailyTransportation;
+  /** @minimum 0 */
+  estimated_daily_cost_usd: number;
+}
+
 export interface BudgetItem {
   category: string;
   estimated_amount: number;
   description: string;
+}
+
+export type BudgetSummaryCurrency = typeof BudgetSummaryCurrency[keyof typeof BudgetSummaryCurrency];
+
+
+export const BudgetSummaryCurrency = {
+  USD: 'USD',
+} as const;
+
+export interface BudgetSummary {
+  currency: BudgetSummaryCurrency;
+  /** @minimum 0 */
+  total_budget: number;
+  /** @minimum 0 */
+  flights_estimated: number;
+  /** @minimum 0 */
+  accommodation_estimated: number;
+  /** @minimum 0 */
+  transportation_estimated: number;
+  /** @minimum 0 */
+  food_estimated: number;
+  /** @minimum 0 */
+  activities_estimated: number;
+  total_estimated: number;
+  remaining_budget: number;
+  estimates_only: boolean;
 }
 
 export interface TradeoffItem {
@@ -79,19 +149,91 @@ export interface TripAnalysis {
   reasoning: string;
 }
 
+export type TripHealthSubScoreLabel = typeof TripHealthSubScoreLabel[keyof typeof TripHealthSubScoreLabel];
+
+
+export const TripHealthSubScoreLabel = {
+  Excellent: 'Excellent',
+  Good: 'Good',
+  Fair: 'Fair',
+  Needs_attention: 'Needs attention',
+} as const;
+
+/**
+ * One dimension of the Trip Health Score
+ */
+export interface TripHealthSubScore {
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  score: number;
+  label: TripHealthSubScoreLabel;
+  explanation: string;
+}
+
+export type TripHealthScoreOverallLabel = typeof TripHealthScoreOverallLabel[keyof typeof TripHealthScoreOverallLabel];
+
+
+export const TripHealthScoreOverallLabel = {
+  Excellent: 'Excellent',
+  Good: 'Good',
+  Fair: 'Fair',
+  Needs_attention: 'Needs attention',
+} as const;
+
+/**
+ * Structured multi-dimensional evaluation of the itinerary
+ */
+export interface TripHealthScore {
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  overall: number;
+  overall_label: TripHealthScoreOverallLabel;
+  experience_fit: TripHealthSubScore;
+  transportation_efficiency: TripHealthSubScore;
+  budget_efficiency: TripHealthSubScore;
+  uniqueness: TripHealthSubScore;
+  pacing: TripHealthSubScore;
+}
+
+export type ItineraryCurrency = typeof ItineraryCurrency[keyof typeof ItineraryCurrency];
+
+
+export const ItineraryCurrency = {
+  USD: 'USD',
+} as const;
+
 export interface Itinerary {
   id: string;
   trip_id: string;
+  currency: ItineraryCurrency;
+  /** @minimum 1 */
+  total_days: number;
+  /** @minimum 1 */
+  total_nights: number;
   trip_strategy: string;
   route: RouteStop[];
   destinations: DestinationScore[];
+  daily_itinerary: DailyItinerary[];
   daily_schedule: DailySchedule[];
   budget_breakdown: BudgetItem[];
+  budget_summary: BudgetSummary;
   reasoning: string;
   tradeoffs: TradeoffItem[];
+  health_score: TripHealthScore | null;
   version: number;
   created_at: string;
 }
+
+export type TripCurrency = typeof TripCurrency[keyof typeof TripCurrency];
+
+
+export const TripCurrency = {
+  USD: 'USD',
+} as const;
 
 export interface Trip {
   id: string;
@@ -100,7 +242,8 @@ export interface Trip {
   start_date: string;
   end_date: string;
   traveler_count: number;
-  budget: number;
+  budget?: number;
+  currency?: TripCurrency;
   budget_preference: string;
   traveler_profile: TravelerProfile;
   latest_itinerary: Itinerary | null;
@@ -122,7 +265,13 @@ export interface TripModification {
   user_request: string;
   changes_made: ChangeMade[];
   reasoning: string;
+  score_before: TripHealthScore | null;
+  score_after: TripHealthScore | null;
   itinerary: Itinerary;
   created_at: string;
 }
+
+export type ListDestinations200 = {
+  destinations: CatalogDestination[];
+};
 
