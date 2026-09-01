@@ -190,6 +190,28 @@ export default function Analysis() {
                               <p className="mt-1 text-xs leading-5 text-[#65706d]">{d.drawbacks}</p>
                             </div>
                           )}
+                          {(d.recommended_nights || d.why_selected || d.experience_highlights?.length || d.estimated_cost_usd !== undefined) && (
+                            <div className="mt-4 grid gap-3 border-t border-[#e2ddd2] pt-4 sm:grid-cols-2">
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wider text-[#bb7a52]">Recommended stay</p>
+                                <p className="mt-1 text-xs text-[#65706d]">
+                                  {d.recommended_nights ?? 2} nights · estimated destination cost ${Math.round(d.estimated_cost_usd ?? 0).toLocaleString()}
+                                </p>
+                              </div>
+                              {d.why_selected && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-wider text-[#bb7a52]">Why selected</p>
+                                  <p className="mt-1 text-xs text-[#65706d]">{d.why_selected}</p>
+                                </div>
+                              )}
+                              {d.experience_highlights && d.experience_highlights.length > 0 && (
+                                <div className="sm:col-span-2">
+                                  <p className="text-[10px] uppercase tracking-wider text-[#bb7a52]">Experience highlights</p>
+                                  <p className="mt-1 text-xs text-[#65706d]">{d.experience_highlights.join(' · ')}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="sm:hidden">
                           <span className="font-mono-custom text-lg text-[#bb7a52]">{d.score}%</span>{' '}
@@ -203,6 +225,80 @@ export default function Analysis() {
             </div>
           </section>
         )}
+        {!isLoading && analysis && (analysis.recommendations?.length || analysis.strategies?.length) ? (
+          <section className="border-t border-[#d7d0c2] py-16">
+            <div className="max-w-3xl">
+              <p className="font-mono-custom text-[11px] uppercase tracking-[.18em] text-[#bb7a52]">
+                The decision, made visible
+              </p>
+              <h2 className="mt-3 font-display text-4xl tracking-[-.04em] sm:text-5xl">
+                Roamwise recommendations
+              </h2>
+              <p className="mt-4 max-w-xl text-sm leading-6 text-[#65706d]">
+                You stay in control. These are considered ways to spend your limited days, energy, and budget — not rules.
+              </p>
+            </div>
+
+            {analysis.strategies && analysis.strategies.length > 0 && (
+              <div className="mt-9 grid gap-3 lg:grid-cols-3">
+                {analysis.strategies.map((strategy) => (
+                  <div
+                    key={strategy.name}
+                    className={`rounded-2xl border p-5 ${
+                      strategy.recommended
+                        ? 'border-[#203b47] bg-[#d9e2d8]'
+                        : 'border-[#d7d0c2] bg-[#fbfaf6]'
+                    }`}
+                    data-testid={`card-strategy-${strategy.name.replace(/\W/g, '-').toLowerCase()}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="font-display text-2xl">{strategy.name}</h3>
+                      {strategy.recommended && (
+                        <span className="rounded-full bg-[#203b47] px-2 py-1 font-mono-custom text-[9px] uppercase tracking-wider text-[#f5f0e6]">
+                          Recommended
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-1.5">
+                      {strategy.best_for.map((interest) => (
+                        <span key={interest} className="rounded-full border border-[#c9c1b2] px-2 py-1 text-[10px] text-[#65706d]">
+                          {interest}
+                        </span>
+                      ))}
+                    </div>
+                    <dl className="mt-5 space-y-3 text-xs leading-5 text-[#65706d]">
+                      <div><dt className="font-semibold text-[#203b47]">What changes</dt><dd>{strategy.changes}</dd></div>
+                      <div><dt className="font-semibold text-[#203b47]">You gain</dt><dd>{strategy.gains}</dd></div>
+                      <div><dt className="font-semibold text-[#203b47]">You trade off</dt><dd>{strategy.sacrifices}</dd></div>
+                      <div><dt className="font-semibold text-[#203b47]">Pacing / fit</dt><dd>{strategy.pacing_impact} {strategy.experience_match_impact}</dd></div>
+                    </dl>
+                    <p className="mt-5 border-t border-[#d7d0c2] pt-3 font-mono-custom text-[10px] text-[#76827d]">
+                      Estimated budget impact: {strategy.estimated_budget_impact_usd >= 0 ? '+' : '-'}${Math.abs(strategy.estimated_budget_impact_usd).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {analysis.recommendations && analysis.recommendations.length > 0 && (
+              <div className="mt-12">
+                <p className="font-mono-custom text-[11px] uppercase tracking-[.18em] text-[#bb7a52]">
+                  Worth considering
+                </p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  {analysis.recommendations.map((item, index) => (
+                    <div key={`${item.recommendation}-${index}`} className="rounded-2xl border border-[#d7d0c2] bg-[#f8f6ef] p-5">
+                      <p className="font-semibold">{item.recommendation}</p>
+                      <p className="mt-3 text-xs leading-5 text-[#65706d]"><span className="font-semibold text-[#203b47]">Why: </span>{item.reason}</p>
+                      <p className="mt-3 text-xs leading-5 text-[#65706d]"><span className="font-semibold text-[#203b47]">Benefit: </span>{item.expected_benefit}</p>
+                      <p className="mt-3 text-xs leading-5 text-[#65706d]"><span className="font-semibold text-[#203b47]">Tradeoff: </span>{item.tradeoff}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        ) : null}
         {!isLoading && (
           <div className="flex flex-col items-start justify-between gap-5 rounded-2xl bg-[#d9e2d8] p-6 sm:flex-row sm:items-center sm:p-8">
             <div>

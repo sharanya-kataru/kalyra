@@ -21,6 +21,7 @@ import {
 } from "../../lib/ai";
 import { computeTripHealthScore } from "../../lib/scoring";
 import { DESTINATIONS } from "../../lib/destinations";
+import { parseTripDuration } from "../../lib/trip-utils";
 
 const router: IRouter = Router();
 
@@ -131,13 +132,23 @@ router.post("/trips", async (req, res): Promise<void> => {
   }
 
   const d = parsed.data;
+  let normalizedDates;
+  try {
+    normalizedDates = parseTripDuration(d.start_date, d.end_date);
+  } catch {
+    res.status(400).json({
+      error: "We couldn't understand those dates. Try selecting them from the calendar or entering a date like September 18, 2026.",
+    });
+    return;
+  }
+
   const [trip] = await db
     .insert(tripsTable)
     .values({
       destination: d.destination,
       startingLocation: d.starting_location,
-      startDate: d.start_date,
-      endDate: d.end_date,
+      startDate: normalizedDates.start_date,
+      endDate: normalizedDates.end_date,
       travelerCount: d.traveler_count,
       budget: String(d.budget),
       currency: "USD",
@@ -286,6 +297,11 @@ router.post("/trips/:id/modify", async (req, res): Promise<void> => {
 
   // Compute after-score on the new itinerary
   const scoreAfter = computeTripHealthScore(result.itinerary, tripData);
+  const scoreDelta = scoreAfter.overall - scoreBefore.overall;
+  const scoreSign = scoreDelta >= 0 ? "+" : "";
+  const scoreReasoning = result.reasoning.includes("Actual Trip Health Score:")
+    ? result.reasoning
+    : `${result.reasoning} Actual Trip Health Score: ${scoreBefore.overall} → ${scoreAfter.overall} (${scoreSign}${scoreDelta}).`;
 
   // Save new itinerary version
   const [savedItinerary] = await db
@@ -302,7 +318,7 @@ router.post("/trips/:id/modify", async (req, res): Promise<void> => {
       dailySchedule: result.itinerary.daily_schedule,
       budgetBreakdown: result.itinerary.budget_breakdown,
       budgetSummary: result.itinerary.budget_summary,
-      reasoning: result.itinerary.reasoning,
+      reasoning: scoreReasoning,
       tradeoffs: result.itinerary.tradeoffs,
       version: currentItinerary.version + 1,
     })
@@ -317,7 +333,7 @@ router.post("/trips/:id/modify", async (req, res): Promise<void> => {
       previousItineraryId: currentItinerary.id,
       updatedItineraryId: savedItinerary.id,
       changesMade: result.changes_made,
-      reasoning: result.reasoning,
+      reasoning: scoreReasoning,
     })
     .returning();
 

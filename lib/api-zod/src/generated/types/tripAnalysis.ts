@@ -5,10 +5,14 @@
  * Roamwise Travel Experience Optimization API
  * OpenAPI spec version: 0.1.0
  */
+import type { AlternativeStrategy } from './alternativeStrategy';
 import type { DestinationScore } from './destinationScore';
+import type { TripRecommendation } from './tripRecommendation';
 
 export interface TripAnalysis {
   trip_strategy: string;
   destinations: DestinationScore[];
   reasoning: string;
+  recommendations?: TripRecommendation[];
+  strategies?: AlternativeStrategy[];
 }

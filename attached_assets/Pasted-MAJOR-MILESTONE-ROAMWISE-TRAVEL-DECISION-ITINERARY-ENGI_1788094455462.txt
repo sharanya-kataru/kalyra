@@ -1,0 +1,1550 @@
+MAJOR MILESTONE: ROAMWISE TRAVEL DECISION + ITINERARY ENGINE
+
+IMPORTANT: THIS IS AN EXISTING APPLICATION.
+
+DO NOT rebuild this project from scratch.
+DO NOT redesign the application.
+DO NOT replace working functionality unnecessarily.
+DO NOT create a second implementation alongside the existing one.
+DO NOT discard the existing database/API architecture.
+DO NOT remove working features simply because you would architect them differently.
+
+Before changing ANYTHING:
+
+1. Inspect the entire existing codebase.
+2. Identify what is already implemented and working.
+3. Trace the existing flow:
+   questionnaire
+   → trip creation
+   → analysis
+   → generation
+   → dashboard
+   → refinement/modification
+   → persistence.
+4. Identify the existing frontend components, backend routes, database tables/models, OpenAI integration, Geoapify integration, scoring logic, date handling, fallback logic, and itinerary versioning.
+5. Reuse and extend existing implementations wherever possible.
+6. Create a concise implementation plan identifying:
+   - KEEP
+   - FIX
+   - EXTEND
+   - ADD
+7. Then implement this milestone incrementally.
+
+Preserve the current Roamwise visual identity and existing UI unless a UI change is necessary to support functionality.
+
+============================================================
+PRODUCT NORTH STAR
+============================================================
+
+Roamwise is NOT simply an AI itinerary generator.
+
+Roamwise is a TRAVEL DECISION ENGINE.
+
+The core question is:
+
+"Given who this traveler is, their available time, budget, interests, travel style, and constraints, what combination of destinations, experiences, transportation, time allocation, and spending creates the maximum Experience Value?"
+
+The product should feel like:
+
+"A knowledgeable travel expert understands me, challenges weak decisions, explains the tradeoffs, and helps me create the best possible version of my trip."
+
+Every major recommendation should help the traveler make a decision.
+
+Do not prioritize generating more travel content simply for the sake of having more content.
+
+============================================================
+PRESERVE WHAT ALREADY EXISTS
+============================================================
+
+The application already has functionality including some or all of:
+
+- landing page
+- questionnaire
+- trip analysis
+- trip generation
+- trip dashboard
+- Trip Health / Experience Score
+- PostgreSQL persistence
+- OpenAI integration
+- deterministic fallback
+- Geoapify support
+- "Refine your trip"
+- itinerary modification
+- itinerary preservation/version behavior
+- current Roamwise design
+
+DO NOT recreate these features if they already work.
+
+Instead:
+
+inspect them,
+fix them where necessary,
+and extend them to satisfy the requirements below.
+
+If an existing implementation already satisfies a requirement, leave it alone unless there is a clear bug.
+
+============================================================
+1. FIX DATE INPUT — REQUIRED
+============================================================
+
+The current application is too restrictive with travel dates.
+
+It currently expects input similar to:
+
+2026-09-18 to 2026-09-29
+
+This MUST be fixed.
+
+Users should NOT need to know a specific date syntax.
+
+Prefer the following UX:
+
+START DATE
+[ date picker / typed date ]
+
+END DATE
+[ date picker / typed date ]
+
+The user should be able to select dates visually OR type common human-readable formats.
+
+Support reasonable formats including:
+
+September 18, 2026
+September 18th, 2026
+Sep 18 2026
+9/18/2026
+09/18/2026
+9/18/26
+2026-09-18
+
+If retaining a single range field anywhere, also understand:
+
+September 18-29, 2026
+September 18 to September 29, 2026
+Sep 18 - Sep 29, 2026
+9/18/2026 - 9/29/2026
+9/18/26 to 9/29/26
+2026-09-18 to 2026-09-29
+
+Internally normalize dates to:
+
+YYYY-MM-DD
+
+before storing them or sending them to planning logic.
+
+IMPORTANT:
+
+Do NOT use OpenAI to calculate dates.
+
+Application code must calculate:
+
+start_date
+end_date
+total_days
+total_nights
+
+Validate:
+
+- start date exists
+- end date exists
+- end date occurs after start date
+- itinerary duration matches calculated trip duration
+
+Example:
+
+September 18 through September 29
+
+must never produce:
+
+0 nights
+
+If dates cannot be parsed, show a friendly frontend error such as:
+
+"We couldn't understand those dates. Try selecting them from the calendar or entering a date like September 18, 2026."
+
+Do not expose parsing exceptions.
+
+============================================================
+2. KEEP ANALYSIS SEPARATE FROM ITINERARY GENERATION
+============================================================
+
+The intended Roamwise product flow is:
+
+Questionnaire
+↓
+Travel Decision Analysis
+↓
+Roamwise Recommendation
+↓
+User reviews strategy/tradeoffs
+↓
+Generate My Trip
+↓
+Complete Trip Dashboard
+↓
+Continuous Refinement
+
+DO NOT collapse analysis and itinerary generation into one step.
+
+The analysis step is a core product differentiator.
+
+Before generating a complete itinerary, Roamwise should answer:
+
+- Which destinations best fit this traveler?
+- Is the user's proposed trip realistic?
+- Is their destination allocation sensible?
+- Should some destinations receive more or less time?
+- Should anything be removed?
+- Is another destination worth considering?
+- Is the route geographically sensible?
+- Is the trip too rushed?
+- Where is transportation consuming too much vacation time?
+- Where will the traveler's budget create the most Experience Value?
+- What tradeoffs exist?
+
+The user should remain in control.
+
+Roamwise may challenge the user's choices but must allow them to continue with their original preference.
+
+============================================================
+3. OPPORTUNITY COST IS THE CORE DECISION PRINCIPLE
+============================================================
+
+Every travel decision consumes scarce resources:
+
+- vacation days
+- money
+- energy
+- transportation time
+- attention
+
+Therefore Roamwise should NOT simply ask:
+
+"Is Milan a good destination?"
+
+It should ask:
+
+"For THIS traveler, is spending another vacation day in Milan better than spending that day somewhere else?"
+
+Do not simply ask:
+
+"Is this activity worth $150?"
+
+Ask:
+
+"Does spending $150 on this experience create more Experience Value than alternative uses of that money?"
+
+This opportunity-cost framework should influence:
+
+- destination ranking
+- number of nights
+- route planning
+- activity selection
+- transportation decisions
+- budget recommendations
+- accommodation recommendations
+- itinerary modifications
+
+============================================================
+4. BUILD / IMPROVE THE EXPERIENCE OPTIMIZATION ENGINE
+============================================================
+
+Do not rely entirely on OpenAI to decide everything.
+
+Create or improve deterministic backend decision logic where appropriate.
+
+Evaluate destinations across dimensions including:
+
+Experience Match
+Experience Uniqueness
+Time Value
+Budget Value
+Transportation Efficiency
+
+Also consider traveler interests such as:
+
+nature
+mountains
+photography
+food
+culture
+history
+adventure
+relaxation
+shopping
+nightlife
+
+And preferences such as:
+
+avoid tourist traps
+prefer local experiences
+prefer scenic transportation
+avoid early mornings
+avoid long transportation days
+
+And travel style:
+
+FAST
+maximize destinations and highlights
+
+BALANCED
+balance meaningful experiences and relaxation
+
+SLOW
+fewer destinations and deeper experiences
+
+Use these factors to produce meaningful traveler-specific scores.
+
+Do NOT generate random percentages.
+
+If a destination receives an:
+
+Experience Match: 92%
+
+there should be understandable logic behind that score.
+
+============================================================
+5. DESTINATION INTELLIGENCE
+============================================================
+
+A major current problem is treating countries as destinations.
+
+If the user enters:
+
+Guatemala
+
+the itinerary should NOT simply become:
+
+Guatemala — 10 nights
+
+Roamwise should identify appropriate travel bases.
+
+For example, depending on traveler preferences:
+
+Antigua
+Lake Atitlán
+Flores / Tikal
+Guatemala City
+
+Likewise:
+
+Italy
+
+should result in actual candidate destinations such as:
+
+Rome
+Florence
+Venice
+Dolomites
+Milan
+
+depending on the traveler.
+
+Destination selection must consider:
+
+- interests
+- available days
+- ideal stay length
+- travel style
+- budget
+- geographic flow
+- transportation burden
+- uniqueness
+- season where reliable data exists
+- arrival/departure logistics
+
+Avoid destination overload.
+
+A 10-day trip should generally not become 8 cities simply because they are available.
+
+============================================================
+6. STRUCTURED DESTINATION INTELLIGENCE MODEL
+============================================================
+
+Create or improve a scalable destination intelligence layer.
+
+Do NOT hardcode an enormous list of the entire world.
+
+Design a model capable of storing or deriving attributes such as:
+
+destination
+country
+latitude
+longitude
+ideal_min_nights
+ideal_max_nights
+cost_level
+nature_score
+mountain_score
+photography_score
+food_score
+culture_score
+history_score
+adventure_score
+relaxation_score
+shopping_score
+nightlife_score
+uniqueness_score
+crowd_level
+transportation_complexity
+seasonality
+
+The architecture should allow destination intelligence to improve over time.
+
+Roamwise should eventually combine:
+
+structured destination intelligence
++
+real external data
++
+AI reasoning
+
+rather than depending completely on an LLM.
+
+============================================================
+7. PROACTIVE TRAVEL EXPERT BEHAVIOR
+============================================================
+
+Roamwise should respectfully challenge weak decisions.
+
+Example:
+
+Traveler wants:
+
+4 nights Milan
+2 nights Zermatt
+
+Traveler strongly prefers:
+
+mountains
+nature
+photography
+
+Roamwise should be capable of explaining:
+
+"Milan offers strong food, architecture, and urban experiences, but four nights may use more of your limited vacation time than necessary given your priorities. Reducing Milan and allocating additional time to Zermatt could improve your overall Experience Match."
+
+The AI should follow this pattern:
+
+1. ACKNOWLEDGE
+"I understand you want four nights in Milan."
+
+2. EXPLAIN TRADEOFF
+"That leaves less time for destinations that more strongly match your mountain and photography interests."
+
+3. RECOMMEND
+"I recommend reducing Milan and allocating additional time to Zermatt."
+
+Never behave as though the traveler is wrong.
+
+Explain the opportunity cost and let the traveler choose.
+
+============================================================
+8. ROAMWISE RECOMMENDATIONS
+============================================================
+
+Add or improve a section:
+
+"Roamwise Recommendations"
+
+Possible recommendations:
+
+- spend another night somewhere
+- shorten a destination
+- remove a destination
+- reorder destinations
+- reduce transportation
+- slow the trip down
+- add a unique experience
+- replace a low-value activity
+- spend more where it meaningfully improves the trip
+- save money where spending adds little Experience Value
+
+Each recommendation should contain:
+
+recommendation
+reason
+expected benefit
+tradeoff
+
+Do not give recommendations without explaining WHY.
+
+============================================================
+9. ALTERNATIVE TRIP STRATEGIES
+============================================================
+
+Travel planning rarely has one objectively correct answer.
+
+Where meaningful, the ANALYSIS page should show 2-3 high-level strategies.
+
+Example:
+
+OPTION A — ROAMWISE RECOMMENDED
+"Alpine Focus"
+
+Best for:
+Nature
+Photography
+Scenery
+
+OPTION B
+"Culture + Mountains"
+
+Best for:
+Food
+Architecture
+Nature
+
+OPTION C
+"More Destinations"
+
+Best for:
+Travelers who prioritize variety
+
+For each strategy explain:
+
+- what changes
+- what the traveler gains
+- what they sacrifice
+- estimated budget impact
+- pacing impact
+- Experience Match impact
+
+Recommend one option.
+
+Do NOT generate three complete day-by-day itineraries automatically.
+
+These are decision alternatives.
+
+Generate the detailed itinerary after the traveler selects or accepts a strategy.
+
+If implementing strategy selection would destabilize the existing flow, implement the analysis/data model first and integrate it cleanly into the existing generation flow.
+
+============================================================
+10. COMPLETE DAY-BY-DAY ITINERARY
+============================================================
+
+The current product must reliably generate the FULL trip.
+
+Every travel day must have an itinerary entry.
+
+If:
+
+total_days = 12
+
+there must be:
+
+12 daily itinerary entries.
+
+Each day should contain structured information such as:
+
+{
+  "day": 1,
+  "date": "2026-09-18",
+  "location": "Antigua",
+  "theme": "Arrival and introduction",
+  "day_type": "arrival",
+  "morning": {
+      "activity": "",
+      "description": "",
+      "estimated_cost_usd": 0
+  },
+  "afternoon": {
+      "activity": "",
+      "description": "",
+      "estimated_cost_usd": 0
+  },
+  "evening": {
+      "activity": "",
+      "description": "",
+      "estimated_cost_usd": 0
+  },
+  "food_recommendations": [],
+  "transportation": {
+      "mode": "",
+      "from": "",
+      "to": "",
+      "duration": "",
+      "estimated_cost_usd": 0
+  },
+  "estimated_daily_cost_usd": 0,
+  "notes": []
+}
+
+Possible day types:
+
+arrival
+exploration
+transfer
+relaxation
+departure
+
+The itinerary must account for travel fatigue.
+
+A five-hour transfer day should NOT contain three major attractions.
+
+Arrival days should account for arrival logistics.
+
+Departure days should not contain unrealistic schedules.
+
+============================================================
+11. ACTIVITY RECOMMENDATION QUALITY
+============================================================
+
+Do not generate generic:
+
+"Top 10 things to do"
+
+style itineraries.
+
+Activities should be evaluated according to:
+
+Traveler Match
+Uniqueness
+Cost-to-Value
+Time Requirement
+Crowding
+Route Convenience
+
+IMPORTANT:
+
+"avoid tourist traps"
+
+does NOT mean:
+
+"never recommend popular attractions."
+
+A strong itinerary balances:
+
+1. Iconic / must-see experiences
+2. Traveler-specific experiences
+3. Local experiences
+4. Lesser-known discoveries
+5. Rest or unstructured exploration
+
+Popularity alone should neither qualify nor disqualify an activity.
+
+The goal is:
+
+Make famous places meaningful while discovering experiences specifically suited to this traveler.
+
+============================================================
+12. USE REAL PLACES WHERE AVAILABLE
+============================================================
+
+The project already has optional Geoapify support.
+
+INSPECT the current implementation first.
+
+Do NOT recreate it unnecessarily.
+
+Where Geoapify is available, use it to retrieve actual POIs.
+
+Potential categories:
+
+attractions
+landmarks
+nature
+viewpoints
+parks
+museums
+cultural sites
+food-related locations
+other relevant POIs
+
+Desired flow:
+
+Destination selected
+↓
+Places provider retrieves real POIs
+↓
+Results categorized
+↓
+Roamwise evaluates them against traveler preferences
+↓
+AI helps rank/explain selections
+↓
+Selected places enter itinerary
+
+Use or create a clean abstraction such as:
+
+PlacesProvider
+
+Do not scatter Geoapify-specific code throughout the planning engine.
+
+If Geoapify is unavailable:
+
+use fallback destination knowledge,
+
+but NEVER label fallback information as:
+
+live
+real-time
+currently available
+
+unless it actually came from live data.
+
+============================================================
+13. DO NOT INVENT REAL-TIME INFORMATION
+============================================================
+
+This milestone is NOT yet the full real-time travel-data milestone.
+
+Do NOT fabricate:
+
+live flight prices
+live hotel prices
+live hotel availability
+live activity availability
+live train availability
+real-time weather
+
+If data is estimated, label it:
+
+Estimated
+
+Never imply estimates are current prices.
+
+The next major milestone will integrate real travel providers.
+
+============================================================
+14. USD EVERYWHERE
+============================================================
+
+The current product is intended to default to USD.
+
+Questionnaire:
+
+$
+
+Examples:
+
+$3,000
+$4,500
+
+Backend:
+
+currency = "USD"
+
+Frontend:
+
+$1,600
+$480
+$25
+
+Remove accidental € displays.
+
+Do not add multi-currency complexity yet.
+
+============================================================
+15. RELIABLE BUDGET ENGINE
+============================================================
+
+Do not let OpenAI perform final arithmetic.
+
+Backend application code must calculate budget totals.
+
+Use a structure such as:
+
+{
+ "currency": "USD",
+ "total_budget": 3000,
+ "flights_estimated": 0,
+ "accommodation_estimated": 0,
+ "transportation_estimated": 0,
+ "food_estimated": 0,
+ "activities_estimated": 0,
+ "total_estimated": 0,
+ "remaining_budget": 0
+}
+
+Prevent:
+
+NaN
+Infinity
+undefined
+null
+negative invalid totals
+
+If the trip exceeds budget, display:
+
+"Estimated amount over budget"
+
+and provide intelligent ways to reduce the cost.
+
+If pricing does not come from live providers, clearly label it:
+
+Estimated.
+
+============================================================
+16. ACCOMMODATION VALUE MODEL
+============================================================
+
+Do not think about hotels only as:
+
+cheapest price.
+
+Prepare the planning engine for an:
+
+Accommodation Value Score.
+
+Eventually hotel recommendations should consider:
+
+- nightly price
+- location
+- neighborhood
+- distance from planned activities
+- transportation access
+- transportation time saved
+- transportation cost saved
+- traveler preferences
+- convenience
+- value
+
+Example:
+
+Hotel A:
+$130/night
+40 minutes from most activities
+
+Hotel B:
+$155/night
+walkable to most itinerary activities
+
+Roamwise may eventually determine that Hotel B provides greater Experience Value despite costing more.
+
+DO NOT integrate a paid/live hotel marketplace during this milestone.
+
+Create the architecture/model needed for this reasoning without overbuilding it.
+
+============================================================
+17. TRANSPORTATION EFFICIENCY
+============================================================
+
+Transportation has a hidden cost.
+
+A:
+
+5-hour train journey
+
+is not merely five hours.
+
+It can involve:
+
+packing
+checkout
+getting to station
+waiting
+transfers
+navigation
+check-in
+fatigue
+
+Route optimization should therefore consider:
+
+distance
+estimated travel duration
+number of transfers
+geographic flow
+backtracking
+fatigue
+scenic value when relevant
+cost when known
+
+Example:
+
+BAD:
+Rome → Venice → Florence → Rome
+
+BETTER:
+Rome → Florence → Venice
+
+where transportation data supports that conclusion.
+
+============================================================
+18. TRIP HEALTH / EXPERIENCE SCORE
+============================================================
+
+Inspect the score that already exists.
+
+DO NOT replace it if it already has useful logic.
+
+Improve it where necessary so that it reflects understandable factors.
+
+Possible dimensions:
+
+Experience Fit
+Experience Uniqueness
+Budget Efficiency
+Transportation Efficiency
+Pacing
+
+Produce:
+
+Trip Health Score / Experience Score
+0-100
+
+Do not use arbitrary random numbers.
+
+A score should change for a reason.
+
+============================================================
+19. MAKE SCORE CHANGES EXPLAINABLE
+============================================================
+
+When a traveler modifies their trip, explain the score impact.
+
+Example:
+
+BEFORE
+Trip Health Score: 82
+
+AFTER
+Trip Health Score: 88
+
+Changes:
+
++5 Experience Fit
++3 Pacing
+-2 Budget Efficiency
+
+Explanation:
+
+"Adding another night in Lake Atitlán improves alignment with your nature and photography interests but increases estimated accommodation spending."
+
+The exact calculation does not need to use these example numbers.
+
+Use the actual scoring model.
+
+============================================================
+20. REFINE YOUR TRIP MUST PRESERVE THE TRIP
+============================================================
+
+There is already a refinement/modification feature.
+
+DO NOT rebuild it if it works.
+
+Preserve the successful behavior where editing one part of a trip does not unnecessarily regenerate everything.
+
+Examples:
+
+"Make Day 5 less busy."
+
+"Remove Milan."
+
+"Spend another night in Zermatt."
+
+"Make this approximately $500 cheaper."
+
+"Add more food experiences."
+
+"Can we add Venice?"
+
+"Make this less rushed."
+
+Desired flow:
+
+1. Load current itinerary.
+2. Interpret modification.
+3. Determine affected portions.
+4. Preserve unaffected itinerary data.
+5. Modify relevant data only.
+6. Recalculate affected transportation.
+7. Recalculate affected budget.
+8. Recalculate Trip Health Score.
+9. Save a new itinerary version.
+10. Explain what changed.
+
+Do NOT replace the entire itinerary unnecessarily.
+
+Preserve existing version/history functionality if already implemented.
+
+============================================================
+21. TRIP MODIFICATION SHOULD BE CONVERSATIONAL
+============================================================
+
+The traveler should feel free to experiment.
+
+After generating the trip, make the existing refinement interface clearly communicate something similar to:
+
+"Want to change anything?"
+
+Users should be able to type natural requests.
+
+Examples:
+
+"I don't really care about Milan anymore."
+
+"Can we spend another day in the mountains?"
+
+"I want one completely relaxing day."
+
+"Can we make the hotels cheaper?"
+
+"I don't want to wake up early on vacation."
+
+"Can we add Venice without making the trip exhausting?"
+
+Roamwise should interpret the intent, explain the tradeoff where necessary, and modify the trip.
+
+The experience should feel flexible rather than like the itinerary is final.
+
+============================================================
+22. DESTINATION BREAKDOWN
+============================================================
+
+Each destination should have meaningful information including:
+
+destination
+country
+number of nights
+Experience Match
+why selected
+recommended duration
+why that duration was chosen
+experience highlights
+estimated destination cost
+
+Where useful distinguish:
+
+MUST EXPERIENCE
+
+OPTIONAL
+
+Do not overload the traveler with enormous lists.
+
+============================================================
+23. PRACTICAL NOTES
+============================================================
+
+The existing Practical Notes tab should become useful if it is currently incomplete.
+
+Potential sections:
+
+Transportation
+Reservations
+Local transportation
+Packing considerations
+Arrival/departure considerations
+Timing warnings
+Travel fatigue warnings
+
+Do not fabricate:
+
+visa requirements
+legal requirements
+medical advice
+safety claims
+
+without reliable external sources.
+
+============================================================
+24. BUDGET OPTIMIZATION RECOMMENDATIONS
+============================================================
+
+Roamwise should not simply display the budget.
+
+Help travelers decide:
+
+"Where should my money go?"
+
+Prioritize spending where it improves Experience Value.
+
+Potential high-value spending:
+
+unique experiences
+special activities
+convenient transportation
+good accommodation location
+
+Potential lower-value spending:
+
+unnecessary upgrades
+overpriced generic tourist experiences
+convenience spending that adds little value
+
+Example reasoning:
+
+"You could save approximately $X here with relatively little impact on the experience, while preserving budget for the activity that strongly matches your interests."
+
+Only use exact dollar savings when the underlying calculation/data supports it.
+
+============================================================
+25. ROUTE VISUALIZATION DATA
+============================================================
+
+Ensure the backend returns enough structured route data to eventually support a real interactive map.
+
+For each route segment, support fields such as:
+
+from
+to
+transport_mode
+estimated_duration
+estimated_cost
+latitude/longitude where available
+
+Do not spend this milestone building an elaborate mapping system if one does not already exist.
+
+Prepare reliable data for the next milestone.
+
+============================================================
+26. BOOKING CHECKLIST
+============================================================
+
+If the Booking Checklist already exists, preserve it.
+
+Make it trip-specific where possible.
+
+Possible categories:
+
+Flights
+Accommodation
+Inter-city transportation
+High-demand activities
+Reservations
+
+Do NOT turn Roamwise into a booking website.
+
+This remains planning assistance.
+
+============================================================
+27. PROVIDER ARCHITECTURE FOR NEXT MILESTONE
+============================================================
+
+Prepare clean interfaces for future live data.
+
+Examples:
+
+FlightProvider
+HotelProvider
+PlacesProvider
+ActivityProvider
+TransportProvider
+WeatherProvider
+
+Do NOT integrate every provider now.
+
+The next milestone will connect actual travel APIs.
+
+The purpose now is to make the planning engine provider-agnostic so future APIs do not require rewriting core business logic.
+
+============================================================
+28. ERROR HANDLING
+============================================================
+
+The user should never see:
+
+NaN
+undefined
+null
+stack traces
+raw provider errors
+API keys
+database errors
+OpenAI exceptions
+
+Examples of friendly errors:
+
+DATE:
+
+"We couldn't understand those dates. Try selecting them from the calendar or entering a date like September 18, 2026."
+
+AI:
+
+"We couldn't reach the planning service. Please try again."
+
+PLACES:
+
+"Live place recommendations are temporarily unavailable. Your itinerary was generated using destination knowledge instead."
+
+============================================================
+29. VALIDATE AI OUTPUT
+============================================================
+
+OpenAI output must not be blindly trusted.
+
+Validate structured responses before persistence.
+
+Ensure:
+
+route exists
+destinations exist
+daily itinerary count matches total days
+budget values are valid numbers
+dates are valid
+destination nights make sense
+required fields exist
+
+Repair safe formatting issues programmatically where appropriate.
+
+If output is fundamentally invalid, retry or return a controlled error.
+
+============================================================
+30. CODE ORGANIZATION
+============================================================
+
+Inspect the current code first.
+
+Only refactor where necessary.
+
+Avoid giant monolithic files.
+
+Core concepts should be reasonably separated into areas such as:
+
+date utilities
+trip models/types
+planning engine
+destination intelligence
+scoring engine
+budget engine
+AI service
+provider integrations
+database/persistence
+API routes
+frontend components/API client
+
+DO NOT perform a massive architectural rewrite solely for cleanliness.
+
+Refactor only where it improves reliability or is necessary for this milestone.
+
+============================================================
+31. DO NOT BUILD THESE YET
+============================================================
+
+Do NOT add:
+
+payments
+booking checkout
+hotel marketplace
+flight marketplace
+affiliate links
+social network
+mobile app
+complex authentication overhaul
+collaboration
+full user preference learning
+massive destination database
+
+Do NOT spend this milestone redesigning the landing page.
+
+Do NOT replace the existing visual identity.
+
+The purpose of this milestone is:
+
+MAKE THE TRAVEL DECISION AND ITINERARY EXPERIENCE WORK EXTREMELY WELL.
+
+============================================================
+32. END-TO-END TEST A — GUATEMALA
+============================================================
+
+Run this test through the actual application/backend.
+
+Destination:
+
+Guatemala
+
+Starting location:
+New York
+
+Dates:
+
+September 18, 2026
+through
+September 29, 2026
+
+Also verify typed formats such as:
+
+9/18/26
+9/29/26
+
+and, if a range field remains anywhere:
+
+9/18/26 - 9/29/26
+
+Budget:
+
+$3,000
+
+Interests:
+
+mountains
+nature
+local food
+photography
+
+Travel style:
+
+balanced
+
+Preferences:
+
+prefer local experiences
+prefer scenic transportation
+avoid tourist traps
+
+VERIFY:
+
+- all supported date formats work
+- dates normalize correctly
+- total days are correct
+- total nights are correct
+- no 0-night bug
+- route does not simply say "Guatemala"
+- actual travel bases are selected
+- destination allocation makes sense
+- complete day-by-day itinerary exists
+- every day has the correct date
+- transfer days are realistic
+- no NaN
+- no undefined
+- USD everywhere
+- budget math works
+- estimated prices are labeled estimated
+- Experience Score exists
+- recommendations have reasoning
+
+============================================================
+33. END-TO-END TEST B — ITALY + SWITZERLAND
+============================================================
+
+Starting location:
+
+New York
+
+Destination:
+
+Italy and Switzerland
+
+Dates:
+
+Sep 5, 2026
+through
+Sep 15, 2026
+
+Budget:
+
+$4,000
+
+Interests:
+
+nature
+photography
+food
+
+Travel style:
+
+balanced
+
+Preferences:
+
+prefer scenic transportation
+prefer local experiences
+
+VERIFY:
+
+- date parsing
+- duration
+- logical destination selection
+- sensible destination count
+- geographic flow
+- no unnecessary backtracking
+- reasonable nights per destination
+- complete day-by-day itinerary
+- transportation-aware days
+- budget math
+- Experience Match reasoning
+- Roamwise challenges low-value allocation when appropriate
+
+============================================================
+34. END-TO-END TEST C — MODIFY EXISTING TRIP
+============================================================
+
+Using Test B's generated trip, submit:
+
+"Make this less rushed and give me more mountain time."
+
+VERIFY:
+
+- existing itinerary is loaded
+- trip is modified rather than discarded
+- unaffected content remains intact where appropriate
+- destination allocation changes logically
+- daily itinerary remains complete
+- transportation updates if necessary
+- budget recalculates
+- score recalculates
+- score change is explained
+- modification/version is persisted
+
+Then test:
+
+"Make Day 5 less busy."
+
+VERIFY:
+
+- Day 5 changes
+- unrelated days remain unchanged unless dependencies require changes
+
+============================================================
+35. REGRESSION TEST EXISTING FUNCTIONALITY
+============================================================
+
+Because this is an EXISTING application, regression testing is mandatory.
+
+After implementation verify that previously working features still work:
+
+- landing page
+- questionnaire navigation
+- trip creation
+- analysis
+- Generate My Trip
+- dashboard
+- tab navigation
+- refine trip
+- trip persistence
+- modification history/versioning
+- existing OpenAI fallback behavior
+- existing Geoapify behavior
+
+Do not declare the milestone complete if a previously working core feature was broken.
+
+============================================================
+FINAL ACCEPTANCE CRITERIA
+============================================================
+
+A traveler should now be able to:
+
+1. Start a trip without knowing a strict date syntax.
+
+2. Select or type normal travel dates.
+
+3. Enter starting location, destination/country, budget, travelers, interests, style, and preferences.
+
+4. Receive an intelligent analysis BEFORE itinerary generation.
+
+5. Understand what Roamwise recommends and why.
+
+6. Understand the tradeoffs.
+
+7. Ignore Roamwise's recommendation if they choose.
+
+8. Generate a logical route using actual destination bases rather than just country names.
+
+9. Receive a COMPLETE day-by-day itinerary.
+
+10. Understand why each destination was selected.
+
+11. See estimated budget information in USD.
+
+12. See a meaningful Experience / Trip Health Score.
+
+13. Understand where their time and money create the greatest Experience Value.
+
+14. Ask naturally for changes.
+
+15. Have the existing trip intelligently modified rather than completely regenerated.
+
+16. Understand what changed and why.
+
+17. See how modifications affect the Trip Health Score.
+
+18. Continue refining the trip without feeling locked into the first itinerary.
+
+The experience should make someone think:
+
+"This feels like a travel expert actually thought through my trip."
+
+NOT:
+
+"This website just sent my questionnaire to ChatGPT."
+
+============================================================
+ARCHITECTURAL PRINCIPLE
+============================================================
+
+The long-term system should move toward:
+
+Traveler Profile
+        ↓
+Travel Decision Engine
+        ↓
+Destination Intelligence
+        ↓
+Experience Optimization
+        ↓
+Real-World Data Providers
+        ↓
+AI Reasoning / Explanation
+        ↓
+Optimized Trip
+        ↓
+User Modification
+        ↓
+Re-optimization
+
+AI should be PART of the decision system.
+
+AI should NOT BE the entire decision system.
+
+============================================================
+WHEN FINISHED
+============================================================
+
+Do NOT simply say:
+
+"Everything works."
+
+Provide a detailed completion report containing:
+
+1. Existing functionality that was preserved
+
+2. Bugs discovered
+
+3. Root causes of those bugs
+
+4. Date input changes
+
+5. Planning-engine improvements
+
+6. Destination-intelligence changes
+
+7. Scoring changes
+
+8. Budget-engine changes
+
+9. Geoapify/live-data usage
+
+10. AI responsibilities
+
+11. Deterministic/backend responsibilities
+
+12. Features still using fallback or estimated data
+
+13. Files created
+
+14. Files significantly modified
+
+15. Database/schema changes, if any
+
+16. Results of Test A
+
+17. Results of Test B
+
+18. Results of Test C
+
+19. Regression-test results
+
+20. Known limitations
+
+21. What should be implemented in the NEXT milestone
+
+IMPORTANT FINAL INSTRUCTION:
+
+Do not claim something uses real-time information unless it actually comes from a live external data provider.
+
+Do not replace functioning code simply because another implementation is cleaner.
+
+Do not rebuild Roamwise.
+
+Evolve the application that already exists.

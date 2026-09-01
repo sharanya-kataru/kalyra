@@ -58,6 +58,9 @@ export const CreateTripBody = zod.object({
 
 
 
+
+export const createTripResponseLatestItineraryOneDestinationsItemEstimatedCostUsdMin = 0;
+
 export const createTripResponseLatestItineraryOneDailyItineraryItemMorningEstimatedCostUsdMin = 0;
 
 export const createTripResponseLatestItineraryOneDailyItineraryItemAfternoonEstimatedCostUsdMin = 0;
@@ -130,7 +133,11 @@ export const CreateTripResponse = zod.object({
   "name": zod.string(),
   "score": zod.number(),
   "reasoning": zod.string(),
-  "drawbacks": zod.string()
+  "drawbacks": zod.string(),
+  "recommended_nights": zod.number().min(1).optional(),
+  "why_selected": zod.string().optional(),
+  "experience_highlights": zod.array(zod.string()).optional(),
+  "estimated_cost_usd": zod.number().min(createTripResponseLatestItineraryOneDestinationsItemEstimatedCostUsdMin).optional()
 })),
   "daily_itinerary": zod.array(zod.object({
   "day": zod.number(),
@@ -239,6 +246,9 @@ export const GetTripParams = zod.object({
 
 
 
+
+export const getTripResponseLatestItineraryOneDestinationsItemEstimatedCostUsdMin = 0;
+
 export const getTripResponseLatestItineraryOneDailyItineraryItemMorningEstimatedCostUsdMin = 0;
 
 export const getTripResponseLatestItineraryOneDailyItineraryItemAfternoonEstimatedCostUsdMin = 0;
@@ -311,7 +321,11 @@ export const GetTripResponse = zod.object({
   "name": zod.string(),
   "score": zod.number(),
   "reasoning": zod.string(),
-  "drawbacks": zod.string()
+  "drawbacks": zod.string(),
+  "recommended_nights": zod.number().min(1).optional(),
+  "why_selected": zod.string().optional(),
+  "experience_highlights": zod.array(zod.string()).optional(),
+  "estimated_cost_usd": zod.number().min(getTripResponseLatestItineraryOneDestinationsItemEstimatedCostUsdMin).optional()
 })),
   "daily_itinerary": zod.array(zod.object({
   "day": zod.number(),
@@ -418,15 +432,41 @@ export const AnalyzeTripParams = zod.object({
   "id": zod.coerce.string()
 })
 
+
+export const analyzeTripResponseDestinationsItemEstimatedCostUsdMin = 0;
+
+
+
 export const AnalyzeTripResponse = zod.object({
   "trip_strategy": zod.string(),
   "destinations": zod.array(zod.object({
   "name": zod.string(),
   "score": zod.number(),
   "reasoning": zod.string(),
-  "drawbacks": zod.string()
+  "drawbacks": zod.string(),
+  "recommended_nights": zod.number().min(1).optional(),
+  "why_selected": zod.string().optional(),
+  "experience_highlights": zod.array(zod.string()).optional(),
+  "estimated_cost_usd": zod.number().min(analyzeTripResponseDestinationsItemEstimatedCostUsdMin).optional()
 })),
-  "reasoning": zod.string()
+  "reasoning": zod.string(),
+  "recommendations": zod.array(zod.object({
+  "recommendation": zod.string(),
+  "reason": zod.string(),
+  "expected_benefit": zod.string(),
+  "tradeoff": zod.string()
+})).optional(),
+  "strategies": zod.array(zod.object({
+  "name": zod.string(),
+  "best_for": zod.array(zod.string()),
+  "changes": zod.string(),
+  "gains": zod.string(),
+  "sacrifices": zod.string(),
+  "estimated_budget_impact_usd": zod.number(),
+  "pacing_impact": zod.string(),
+  "experience_match_impact": zod.string(),
+  "recommended": zod.boolean()
+})).optional()
 })
 
 
@@ -438,6 +478,9 @@ export const GenerateItineraryParams = zod.object({
 })
 
 
+
+
+export const generateItineraryResponseDestinationsItemEstimatedCostUsdMin = 0;
 
 export const generateItineraryResponseDailyItineraryItemMorningEstimatedCostUsdMin = 0;
 
@@ -496,7 +539,11 @@ export const GenerateItineraryResponse = zod.object({
   "name": zod.string(),
   "score": zod.number(),
   "reasoning": zod.string(),
-  "drawbacks": zod.string()
+  "drawbacks": zod.string(),
+  "recommended_nights": zod.number().min(1).optional(),
+  "why_selected": zod.string().optional(),
+  "experience_highlights": zod.array(zod.string()).optional(),
+  "estimated_cost_usd": zod.number().min(generateItineraryResponseDestinationsItemEstimatedCostUsdMin).optional()
 })),
   "daily_itinerary": zod.array(zod.object({
   "day": zod.number(),
@@ -643,6 +690,9 @@ export const modifyItineraryResponseScoreAfterOnePacingScoreMax = 100;
 
 
 
+
+export const modifyItineraryResponseItineraryDestinationsItemEstimatedCostUsdMin = 0;
+
 export const modifyItineraryResponseItineraryDailyItineraryItemMorningEstimatedCostUsdMin = 0;
 
 export const modifyItineraryResponseItineraryDailyItineraryItemAfternoonEstimatedCostUsdMin = 0;
@@ -767,7 +817,11 @@ export const ModifyItineraryResponse = zod.object({
   "name": zod.string(),
   "score": zod.number(),
   "reasoning": zod.string(),
-  "drawbacks": zod.string()
+  "drawbacks": zod.string(),
+  "recommended_nights": zod.number().min(1).optional(),
+  "why_selected": zod.string().optional(),
+  "experience_highlights": zod.array(zod.string()).optional(),
+  "estimated_cost_usd": zod.number().min(modifyItineraryResponseItineraryDestinationsItemEstimatedCostUsdMin).optional()
 })),
   "daily_itinerary": zod.array(zod.object({
   "day": zod.number(),

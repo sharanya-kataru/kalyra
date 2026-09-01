@@ -575,6 +575,31 @@ export default function Trip() {
         {/* ── PRACTICAL TAB ─────────────────────────────────────────────── */}
         {tab === 'practical' && (
           <section className="py-12">
+            <div className="mb-12">
+              <p className="font-mono-custom text-[11px] uppercase tracking-[.18em] text-[#bb7a52]">Practical notes</p>
+              <h2 className="mt-2 font-display text-4xl tracking-[-.04em]">Keep the good parts easy</h2>
+              <div className="mt-7 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-[#d7d0c2] bg-[#fbfaf6] p-5">
+                  <p className="text-xs font-semibold text-[#203b47]">Arrival + departure</p>
+                  <p className="mt-2 text-xs leading-5 text-[#65706d]">
+                    Day 1 begins in {itinerary.daily_itinerary[0]?.location ?? itinerary.route[0]?.location}; the final day leaves room to depart from {itinerary.daily_itinerary[itinerary.daily_itinerary.length - 1]?.location ?? itinerary.route[itinerary.route.length - 1]?.location}.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-[#d7d0c2] bg-[#fbfaf6] p-5">
+                  <p className="text-xs font-semibold text-[#203b47]">Transfers</p>
+                  <p className="mt-2 text-xs leading-5 text-[#65706d]">
+                    {itinerary.route.filter((stop) => stop.transport_to_next).length} inter-city transfer{itinerary.route.filter((stop) => stop.transport_to_next).length === 1 ? '' : 's'} are built into the route. Transfer days are intentionally lighter.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-[#d7d0c2] bg-[#fbfaf6] p-5">
+                  <p className="text-xs font-semibold text-[#203b47]">Reserve first</p>
+                  <p className="mt-2 text-xs leading-5 text-[#65706d]">
+                    Confirm accommodation in each base, then protect the specific experiences and transport segments that matter most to you.
+                  </p>
+                </div>
+              </div>
+              <p className="mt-4 text-xs text-[#76827d]">Prices and availability shown here are estimates unless a live provider is explicitly connected.</p>
+            </div>
             <div className="mb-8">
               <p className="font-mono-custom text-[11px] uppercase tracking-[.18em] text-[#bb7a52]">Budget breakdown</p>
               <h2 className="mt-2 font-display text-4xl tracking-[-.04em]">Where your money goes</h2>

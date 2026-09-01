@@ -59,12 +59,37 @@ export interface DestinationScore {
   score: number;
   reasoning: string;
   drawbacks: string;
+  recommended_nights?: number;
+  why_selected?: string;
+  experience_highlights?: string[];
+  estimated_cost_usd?: number;
+}
+
+export interface TripRecommendation {
+  recommendation: string;
+  reason: string;
+  expected_benefit: string;
+  tradeoff: string;
+}
+
+export interface AlternativeStrategy {
+  name: string;
+  best_for: string[];
+  changes: string;
+  gains: string;
+  sacrifices: string;
+  estimated_budget_impact_usd: number;
+  pacing_impact: string;
+  experience_match_impact: string;
+  recommended: boolean;
 }
 
 export interface TripAnalysis {
   trip_strategy: string;
   destinations: DestinationScore[];
   reasoning: string;
+  recommendations?: TripRecommendation[];
+  strategies?: AlternativeStrategy[];
 }
 
 export interface RouteStop {
@@ -544,13 +569,38 @@ Return JSON matching this exact schema:
       "name": "destination name",
       "score": 85,
       "reasoning": "why this fits — reference specific catalog attributes like nature, food, culture scores",
-      "drawbacks": "honest assessment with reference to catalog data (crowd level, budget mismatch, etc.)"
+      "drawbacks": "honest assessment with reference to catalog data (crowd level, budget mismatch, etc.)",
+      "recommended_nights": 3,
+      "why_selected": "why this base is worth the traveler's time",
+      "experience_highlights": ["specific experience", "specific experience"],
+      "estimated_cost_usd": 450
     }
   ],
-  "reasoning": "overall reasoning for the strategy, referencing attribute tradeoffs"
+  "reasoning": "overall reasoning for the strategy, referencing attribute tradeoffs",
+  "recommendations": [
+    {
+      "recommendation": "specific action to consider",
+      "reason": "opportunity-cost explanation",
+      "expected_benefit": "what improves",
+      "tradeoff": "what the traveler gives up"
+    }
+  ],
+  "strategies": [
+    {
+      "name": "short strategy name",
+      "best_for": ["interest"],
+      "changes": "what changes",
+      "gains": "what the traveler gains",
+      "sacrifices": "what the traveler sacrifices",
+      "estimated_budget_impact_usd": 0,
+      "pacing_impact": "how the pace changes",
+      "experience_match_impact": "how experience match changes",
+      "recommended": true
+    }
+  ]
 }
 
-Include 3-5 destinations within or adjacent to the requested area. Score each 0-100 based on match with this specific traveler's interests. Reference catalog attribute scores directly in your explanations.`;
+ Include 3-5 destinations within or adjacent to the requested area. Score each 0-100 based on match with this specific traveler's interests. Reference catalog attribute scores directly in your explanations. Include 2-3 meaningful decision strategies when the trip has more than one sensible shape, and 2-3 recommendations with a reason, expected benefit, and tradeoff.`;
 
     try {
       const response = await client.chat.completions.create({
@@ -565,7 +615,7 @@ Include 3-5 destinations within or adjacent to the requested area. Score each 0-
 
       const content = response.choices[0]?.message?.content;
       if (content) {
-        return JSON.parse(content) as TripAnalysis;
+        return normalizeTripAnalysis(JSON.parse(content), trip);
       }
     } catch (err) {
       logger.error({ err }, "OpenAI analyze call failed, using fallback");
@@ -803,6 +853,88 @@ Make targeted changes that genuinely address the request. Your reasoning MUST re
 // Fallbacks — deterministic, input-derived, score-informed
 // ---------------------------------------------------------------------------
 
+function normalizeTripAnalysis(raw: unknown, trip: TripData): TripAnalysis {
+  const fallback = buildFallbackAnalysis(trip);
+  if (!raw || typeof raw !== "object") return fallback;
+
+  const candidate = raw as Record<string, unknown>;
+  const destinations = Array.isArray(candidate.destinations)
+    ? candidate.destinations
+        .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+        .map((item) => ({
+          name: String(item.name ?? trip.destination),
+          score: Math.min(100, Math.max(0, sanitizeAmount(item.score, 65))),
+          reasoning: String(item.reasoning ?? "Selected using the structured destination scoring engine."),
+          drawbacks: String(item.drawbacks ?? "Costs and availability remain estimates until live providers are connected."),
+          recommended_nights: (() => {
+            const attrs = lookupDestination(String(item.name ?? trip.destination));
+            return Math.max(
+              1,
+              sanitizeAmount(
+                item.recommended_nights,
+                attrs ? Math.ceil((attrs.ideal_stay_days.min + attrs.ideal_stay_days.max) / 2) : 2
+              )
+            );
+          })(),
+          why_selected: String(item.why_selected ?? item.reasoning ?? "Selected for fit with your traveler profile."),
+          experience_highlights: Array.isArray(item.experience_highlights)
+            ? item.experience_highlights.map(String).filter(Boolean)
+            : ["A focused local experience aligned with your interests."],
+          estimated_cost_usd: (() => {
+            const attrs = lookupDestination(String(item.name ?? trip.destination));
+            const nights = Math.max(
+              1,
+              sanitizeAmount(
+                item.recommended_nights,
+                attrs ? Math.ceil((attrs.ideal_stay_days.min + attrs.ideal_stay_days.max) / 2) : 2
+              )
+            );
+            return sanitizeAmount(item.estimated_cost_usd, attrs ? attrs.avg_daily_cost_usd * nights : 0);
+          })(),
+        }))
+        .filter((item) => item.name.length > 0)
+    : [];
+
+  if (destinations.length === 0) return fallback;
+
+  const recommendations = Array.isArray(candidate.recommendations)
+    ? candidate.recommendations
+        .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+        .map((item) => ({
+          recommendation: String(item.recommendation ?? ""),
+          reason: String(item.reason ?? ""),
+          expected_benefit: String(item.expected_benefit ?? ""),
+          tradeoff: String(item.tradeoff ?? ""),
+        }))
+        .filter((item) => item.recommendation && item.reason && item.expected_benefit && item.tradeoff)
+    : [];
+
+  const strategies = Array.isArray(candidate.strategies)
+    ? candidate.strategies
+        .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+        .map((item) => ({
+          name: String(item.name ?? "Alternative route"),
+          best_for: Array.isArray(item.best_for) ? item.best_for.map(String) : [],
+          changes: String(item.changes ?? ""),
+          gains: String(item.gains ?? ""),
+          sacrifices: String(item.sacrifices ?? ""),
+          estimated_budget_impact_usd: sanitizeAmount(item.estimated_budget_impact_usd, 0),
+          pacing_impact: String(item.pacing_impact ?? ""),
+          experience_match_impact: String(item.experience_match_impact ?? ""),
+          recommended: Boolean(item.recommended),
+        }))
+        .filter((item) => item.name && item.changes && item.gains && item.sacrifices)
+    : [];
+
+  return {
+    trip_strategy: String(candidate.trip_strategy ?? fallback.trip_strategy),
+    destinations,
+    reasoning: String(candidate.reasoning ?? fallback.reasoning),
+    recommendations: recommendations.length > 0 ? recommendations : fallback.recommendations,
+    strategies: strategies.length > 0 ? strategies : fallback.strategies,
+  };
+}
+
 function buildFallbackAnalysis(trip: TripData): TripAnalysis {
   const interests = trip.traveler_profile.interests;
   const hasNature = interests.some((i) =>
@@ -836,6 +968,13 @@ function buildFallbackAnalysis(trip: TripData): TripAnalysis {
         score,
         reasoning: `${dest} scores ${attrs.nature}/100 on Nature, ${attrs.photography}/100 on Photography, ${attrs.food}/100 on Food, and ${attrs.culture}/100 on Culture. ${hasNature ? `Strong natural landscape access makes this a good fit for your interests.` : `Cultural richness and food scene align with your stated priorities.`}`,
         drawbacks: `${crowdNote} ${costNote} ${attrs.transport_complexity >= 50 ? "Transport navigation can be complex." : ""}`.trim(),
+        recommended_nights: Math.ceil((attrs.ideal_stay_days.min + attrs.ideal_stay_days.max) / 2),
+        why_selected: `Selected because its catalog profile matches the traveler's stated interests and adds a distinct base to the route.`,
+        experience_highlights: [
+          hasNature ? `Nature and scenery experiences (${attrs.nature}/100)` : `Cultural experiences (${attrs.culture}/100)`,
+          hasCity ? `Local food and neighborhood exploration (${attrs.food}/100)` : `Photography-friendly viewpoints (${attrs.photography}/100)`,
+        ],
+        estimated_cost_usd: attrs.avg_daily_cost_usd * Math.ceil((attrs.ideal_stay_days.min + attrs.ideal_stay_days.max) / 2),
       };
     }
 
@@ -856,17 +995,82 @@ function buildFallbackAnalysis(trip: TripData): TripAnalysis {
       drawbacks: score < 73
         ? `${dest} may not fully satisfy your ${hasNature ? "nature and photography" : "cultural"} priorities.`
         : `Peak season crowds can reduce the authentic feel. Early morning visits are recommended.`,
+      recommended_nights: 2,
+      why_selected: `Selected from the route candidates for a complementary fit with your ${interests.slice(0, 2).join(" and ")} priorities.`,
+      experience_highlights: [
+        isNatureDestination ? "Scenic outdoor exploration" : "Local culture and neighborhood life",
+        hasCity ? "Food and everyday local experiences" : "Photography-friendly viewpoints",
+      ],
+      estimated_cost_usd: 0,
     };
   });
 
   const sorted = [...destinations].sort((a, b) => b.score - a.score);
   const topDest = sorted[0];
   const lowDest = sorted[sorted.length - 1];
+  const topName = topDest?.name ?? trip.destination;
+  const lowName = lowDest?.name ?? trip.destination;
+  const isSlow = /unhurried|slow/i.test(trip.traveler_profile.travel_style);
 
   return {
     trip_strategy: `Based on your ${interests.slice(0, 3).join(", ")} interests and ${trip.budget_preference.toLowerCase()} budget preference, we recommend prioritizing ${topDest?.name ?? trip.destination} for the deepest experience value. ${destinations.length > 1 && lowDest && lowDest.name !== topDest?.name ? `Consider whether time in ${lowDest.name} is worth the transit overhead given your pace preference.` : "Focus on depth over breadth for this destination."}`,
     destinations,
     reasoning: `With ${daysBetween(trip.start_date, trip.end_date)} days and a $${trip.budget} budget, the key tension is between covering more ground versus experiencing fewer places more deeply. Your ${trip.traveler_profile.travel_style.toLowerCase()} travel style suggests prioritizing quality encounters over quantity.`,
+    recommendations: [
+      {
+        recommendation: `Protect the core of the trip around ${topName}.`,
+        reason: `${topName} is the strongest catalog match at ${topDest?.score ?? 65}/100 for the interests you selected.`,
+        expected_benefit: "More time for high-fit experiences instead of spending scarce vacation hours on low-value transitions.",
+        tradeoff: `You may see fewer highlights outside ${topName}, especially if you choose a slower route.`,
+      },
+      {
+        recommendation: `Question whether ${lowName} deserves its full allocation.`,
+        reason: `${lowName} is the weakest match in this shortlist, so its nights carry a higher opportunity cost than the leading bases.`,
+        expected_benefit: "Potentially improves Experience Match and reduces transportation fatigue.",
+        tradeoff: `Removing or shortening ${lowName} reduces geographic variety and may remove one iconic experience.`,
+      },
+      {
+        recommendation: "Keep at least one unstructured afternoon in each base.",
+        reason: `Your ${trip.traveler_profile.travel_style.toLowerCase()} pace preference and stated interests benefit from time to follow local recommendations rather than stacking attractions.`,
+        expected_benefit: "Creates room for local discoveries, rest, and weather flexibility.",
+        tradeoff: "A little less certainty that every famous sight will fit into the schedule.",
+      },
+    ],
+    strategies: [
+      {
+        name: "Depth-first route",
+        best_for: interests.slice(0, 3).length > 0 ? interests.slice(0, 3) : ["Restful travel"],
+        changes: `Prioritize ${topName} and remove or shorten the weakest-fit base.`,
+        gains: "Higher pacing quality, fewer transfers, and more time in the places most aligned with the brief.",
+        sacrifices: "Less destination variety and fewer checklist-style highlights.",
+        estimated_budget_impact_usd: 0,
+        pacing_impact: "Improves pacing by reducing transitions.",
+        experience_match_impact: `Favors the ${topDest?.score ?? 65}/100 leading match.`,
+        recommended: isSlow,
+      },
+      {
+        name: "Balanced signature",
+        best_for: interests.slice(0, 2).length > 0 ? interests.slice(0, 2) : ["A little of everything"],
+        changes: "Keep the strongest urban, cultural, and nature bases with moderate nights in each.",
+        gains: "Maintains variety while leaving enough time for meaningful experiences.",
+        sacrifices: "Some bases may sit near the lower edge of their ideal stay range.",
+        estimated_budget_impact_usd: 0,
+        pacing_impact: "Keeps a moderate number of transitions.",
+        experience_match_impact: "Balances the strongest interest dimensions rather than maximizing one.",
+        recommended: !isSlow,
+      },
+      {
+        name: "More destinations",
+        best_for: ["Travelers who prioritize variety"],
+        changes: "Add one additional nearby base only if transport fits without creating a one-night rush.",
+        gains: "More geographic range and a wider sample of the region.",
+        sacrifices: "More packing, transit fatigue, and less unstructured time.",
+        estimated_budget_impact_usd: 0,
+        pacing_impact: "Reduces pacing unless the added base replaces a long transfer.",
+        experience_match_impact: "May add a high-fit experience but can dilute time in the best matches.",
+        recommended: false,
+      },
+    ],
   };
 }
 
@@ -1031,11 +1235,11 @@ function buildFallbackModification(
   const req = request.toLowerCase();
   const scoreRef = currentScore ? ` (current overall: ${currentScore.overall}/100)` : "";
 
+  const requestedDay = req.match(/\bday\s*(\d+)\b/)?.[1];
   const wantsCheaper = /cheap|budget|save|less money|reduce cost/i.test(req);
   const wantsNature = /nature|outdoor|mountain|hiking|scenery/i.test(req);
-  const wantsSlower = /slow|relax|fewer destinations|less rushing/i.test(req);
+  const wantsSlower = !requestedDay && /slow|relax|fewer destinations|less rushing|less rushed|rushed|fewer stops|less busy/i.test(req);
   const wantsFood = /food|eat|restaurant|culinary|cuisine/i.test(req);
-  const requestedDay = req.match(/\bday\s*(\d+)\b/)?.[1];
   const addDestination = /add\s+(lake atitlan|atitlán|zermatt|tikal|antigua|nature)/i.exec(request)?.[1];
 
   const changes: ChangeMade[] = [];

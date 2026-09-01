@@ -35,6 +35,12 @@ export interface DestinationScore {
   score: number;
   reasoning: string;
   drawbacks: string;
+  /** @minimum 1 */
+  recommended_nights?: number;
+  why_selected?: string;
+  experience_highlights?: string[];
+  /** @minimum 0 */
+  estimated_cost_usd?: number;
 }
 
 /**
@@ -143,10 +149,31 @@ export interface TradeoffItem {
   impact: string;
 }
 
+export interface TripRecommendation {
+  recommendation: string;
+  reason: string;
+  expected_benefit: string;
+  tradeoff: string;
+}
+
+export interface AlternativeStrategy {
+  name: string;
+  best_for: string[];
+  changes: string;
+  gains: string;
+  sacrifices: string;
+  estimated_budget_impact_usd: number;
+  pacing_impact: string;
+  experience_match_impact: string;
+  recommended: boolean;
+}
+
 export interface TripAnalysis {
   trip_strategy: string;
   destinations: DestinationScore[];
   reasoning: string;
+  recommendations?: TripRecommendation[];
+  strategies?: AlternativeStrategy[];
 }
 
 export type TripHealthSubScoreLabel = typeof TripHealthSubScoreLabel[keyof typeof TripHealthSubScoreLabel];

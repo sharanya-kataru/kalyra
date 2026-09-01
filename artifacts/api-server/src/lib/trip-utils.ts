@@ -78,15 +78,83 @@ function parseNaturalDate(value: string, fallbackYear?: number): string | null {
     .replace(/,/g, "")
     .replace(/\s+/g, " ")
     .toLowerCase();
-  const match = normalized.match(
-    /^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)(?:\s+(\d{4}))?$/
-  );
-  if (!match) return null;
+  const numeric = normalized.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})$/);
+  if (numeric) {
+    const year = numeric[3].length === 2 ? 2000 + Number(numeric[3]) : Number(numeric[3]);
+    return isoDate(`${year}-${numeric[1]}-${numeric[2]}`);
+  }
 
-  const month = MONTHS[match[2]];
-  const year = Number(match[3] ?? fallbackYear);
-  if (!month || !year) return null;
-  return isoDate(`${year}-${month}-${Number(match[1])}`);
+  const monthFirst = normalized.match(
+    /^([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s+(\d{2}|\d{4}))?$/
+  );
+  if (monthFirst) {
+    const month = MONTHS[monthFirst[1]];
+    const year = Number(monthFirst[3] ?? fallbackYear);
+    return month && year
+      ? isoDate(`${year}-${month}-${Number(monthFirst[2])}`)
+      : null;
+  }
+
+  const dayFirst = normalized.match(
+    /^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)(?:\s+(\d{2}|\d{4}))?$/
+  );
+  if (!dayFirst) return null;
+
+  const month = MONTHS[dayFirst[2]];
+  const year = Number(dayFirst[3] ?? fallbackYear);
+  return month && year
+    ? isoDate(`${year}-${month}-${Number(dayFirst[1])}`)
+    : null;
+}
+
+function parseDateRangeInput(value: string): [string, string] | null {
+  const normalized = value.trim().replace(/\s+/g, " ");
+  if (!normalized) return null;
+
+  const isoRange = normalized.match(
+    /^(\d{4}[-/]\d{1,2}[-/]\d{1,2})\s*(?:to|until|through|-)\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2})$/i
+  );
+  const numericRange = normalized.match(
+    /^(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s*(?:to|until|through|-)\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})$/i
+  );
+  const compactMonthRange = normalized.match(
+    /^([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\s*(?:to|until|through|-|–|—)\s*(\d{1,2})(?:st|nd|rd|th)?(?:,\s*|\s+)(\d{2}|\d{4})$/i
+  );
+
+  if (isoRange) {
+    const start = parseNaturalDate(isoRange[1]);
+    const end = parseNaturalDate(isoRange[2]);
+    return start && end && end > start ? [start, end] : null;
+  }
+
+  if (numericRange) {
+    const start = parseNaturalDate(numericRange[1]);
+    const end = parseNaturalDate(numericRange[2]);
+    return start && end && end > start ? [start, end] : null;
+  }
+
+  if (compactMonthRange) {
+    const month = MONTHS[compactMonthRange[1].toLowerCase()];
+    const year = Number(compactMonthRange[4].length === 2
+      ? `20${compactMonthRange[4]}`
+      : compactMonthRange[4]);
+    const start = month ? parseNaturalDate(`${compactMonthRange[2]} ${compactMonthRange[1]}`, year) : null;
+    const end = month ? parseNaturalDate(`${compactMonthRange[3]} ${compactMonthRange[1]}`, year) : null;
+    return start && end && end > start ? [start, end] : null;
+  }
+
+  const parts = normalized
+    .split(/\s+(?:to|until|through)\s+|\s+[-–—]\s+/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length !== 2) return null;
+  const yearMatch = normalized.match(/\b(20\d{2}|\d{2})\b/);
+  const fallbackYear = yearMatch
+    ? yearMatch[1].length === 2 ? 2000 + Number(yearMatch[1]) : Number(yearMatch[1])
+    : undefined;
+  const start = parseNaturalDate(parts[0], fallbackYear);
+  const end = parseNaturalDate(parts[1], fallbackYear);
+  return start && end && end > start ? [start, end] : null;
 }
 
 /**
@@ -96,17 +164,23 @@ function parseNaturalDate(value: string, fallbackYear?: number): string | null {
  * - 18–29 September 2025
  */
 export function parseTripDuration(startInput: string, endInput: string): TripDuration {
-  let start = parseNaturalDate(startInput);
-  let end = parseNaturalDate(endInput);
+  const yearMatch = `${startInput} ${endInput}`.match(/\b(20\d{2}|\d{2})\b/);
+  const fallbackYear = yearMatch
+    ? yearMatch[1].length === 2 ? 2000 + Number(yearMatch[1]) : Number(yearMatch[1])
+    : undefined;
+  let start = parseNaturalDate(startInput, fallbackYear) ?? undefined;
+  let end = parseNaturalDate(endInput, fallbackYear) ?? undefined;
+
+  const embeddedRange = parseDateRangeInput(startInput) ?? parseDateRangeInput(endInput);
+  if (embeddedRange) {
+    [start, end] = embeddedRange;
+  }
 
   if (!start || !end) {
     const combined = `${startInput} ${endInput}`.trim();
-    const parts = combined.split(/\s+(?:to|until|through)\s+|[–—]/i);
-    if (parts.length >= 2) {
-      const yearMatch = combined.match(/\b(20\d{2})\b/);
-      const year = yearMatch ? Number(yearMatch[1]) : undefined;
-      start = parseNaturalDate(parts[0], year);
-      end = parseNaturalDate(parts[1], year);
+    const parsedRange = parseDateRangeInput(combined);
+    if (parsedRange) {
+      [start, end] = parsedRange;
     }
   }
 

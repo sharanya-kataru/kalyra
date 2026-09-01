@@ -11,4 +11,10 @@ export interface DestinationScore {
   score: number;
   reasoning: string;
   drawbacks: string;
+  /** @minimum 1 */
+  recommended_nights?: number;
+  why_selected?: string;
+  experience_highlights?: string[];
+  /** @minimum 0 */
+  estimated_cost_usd?: number;
 }

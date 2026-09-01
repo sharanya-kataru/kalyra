@@ -15,6 +15,98 @@ const planSteps = [
   { key: 'pace', eyebrow: 'The most important detail', title: 'How should it feel?', hint: 'Think about how you want to come home feeling.', type: 'choice', options: ['Unhurried', 'A little of everything', 'See it all'] },
 ];
 
+const MONTHS: Record<string, string> = {
+  january: '01', jan: '01', february: '02', feb: '02', march: '03', mar: '03',
+  april: '04', apr: '04', may: '05', june: '06', jun: '06', july: '07', jul: '07',
+  august: '08', aug: '08', september: '09', sep: '09', sept: '09', october: '10',
+  oct: '10', november: '11', nov: '11', december: '12', dec: '12',
+};
+
+function toIsoDate(yearValue: string | number, monthValue: string | number, dayValue: string | number): string | null {
+  const year = Number(yearValue);
+  const month = Number(monthValue);
+  const day = Number(dayValue);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    !Number.isInteger(year) ||
+    year < 2000 ||
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return date.toISOString().slice(0, 10);
+}
+
+function expandYear(year: string): number {
+  return year.length === 2 ? 2000 + Number(year) : Number(year);
+}
+
+function parseDateValue(input: string, fallbackYear?: number, fallbackMonth?: string): string | null {
+  const value = input.trim().replace(/,/g, '').replace(/\s+/g, ' ');
+  const numeric = value.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})$/);
+  if (numeric) return toIsoDate(expandYear(numeric[3]), numeric[1], numeric[2]);
+
+  const iso = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) return toIsoDate(iso[1], iso[2], iso[3]);
+
+  const monthFirst = value.match(/^([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s+(\d{2}|\d{4}))?$/i);
+  if (monthFirst) {
+    const month = MONTHS[monthFirst[1].toLowerCase()];
+    const year = monthFirst[3] ? expandYear(monthFirst[3]) : fallbackYear;
+    return month && year ? toIsoDate(year, month, monthFirst[2]) : null;
+  }
+
+  const dayFirst = value.match(/^(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)(?:\s+(\d{2}|\d{4}))?$/i);
+  if (dayFirst) {
+    const month = MONTHS[dayFirst[2].toLowerCase()];
+    const year = dayFirst[3] ? expandYear(dayFirst[3]) : fallbackYear;
+    return month && year ? toIsoDate(year, month, dayFirst[1]) : null;
+  }
+
+  if (fallbackYear && fallbackMonth) {
+    const dayOnly = value.match(/^(\d{1,2})(?:st|nd|rd|th)?$/i);
+    if (dayOnly) return toIsoDate(fallbackYear, fallbackMonth, dayOnly[1]);
+  }
+
+  return null;
+}
+
+function parseDateRange(input: string): [string, string] | null {
+  const normalized = input.trim().replace(/\s+/g, ' ');
+  if (!normalized) return null;
+
+  const compactMonthRange = normalized.match(
+    /^([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\s*(?:-|–|—|to|until|through)\s*(\d{1,2})(?:st|nd|rd|th)?(?:,\s*|\s+)(\d{2}|\d{4})$/i
+  );
+  if (compactMonthRange) {
+    const month = MONTHS[compactMonthRange[1].toLowerCase()];
+    if (month) {
+      const year = expandYear(compactMonthRange[4]);
+      const start = toIsoDate(year, month, compactMonthRange[2]);
+      const end = toIsoDate(year, month, compactMonthRange[3]);
+      if (start && end) return [start, end];
+    }
+  }
+
+  const rangeSeparator = /\s+(?:to|until|through)\s+|\s*[-–—]\s*/i;
+  const parts = normalized.split(rangeSeparator).map((part) => part.trim()).filter(Boolean);
+  if (parts.length !== 2) return null;
+
+  const year = normalized.match(/\b(20\d{2}|\d{2})\b/)?.[1];
+  const fallbackYear = year ? expandYear(year) : undefined;
+  const firstMonth = parts[0].match(/^([A-Za-z]+)\s+\d{1,2}/i)?.[1]?.toLowerCase();
+  const fallbackMonth = firstMonth ? MONTHS[firstMonth] : undefined;
+  const start = parseDateValue(parts[0], fallbackYear, fallbackMonth);
+  const end = parseDateValue(parts[1], fallbackYear, fallbackMonth);
+  if (!start || !end) return null;
+
+  const startTime = Date.parse(`${start}T00:00:00Z`);
+  const endTime = Date.parse(`${end}T00:00:00Z`);
+  return endTime > startTime ? [start, end] : null;
+}
+
 export default function Plan() {
   const [, setLocation] = useLocation();
   const [step, setStep] = useState(0);
@@ -24,6 +116,8 @@ export default function Plan() {
   const [destination, setDestination] = useState('');
   const [startingLocation, setStartingLocation] = useState('');
   const [dates, setDates] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [travelerCount, setTravelerCount] = useState('');
   const [budget, setBudget] = useState('');
   const [budgetPreference, setBudgetPreference] = useState('');
@@ -57,67 +151,19 @@ export default function Plan() {
   const setValue = setters[current.key];
   const choices = current.options ?? [];
   const finish = step === planSteps.length - 1;
-  const canNext = Boolean(value);
-
-  const parseDateRange = (input: string): [string, string] | null => {
-    const normalized = input.trim().replace(/\s+/g, ' ');
-    const compact = normalized.match(/^(\d{1,2})[–—](\d{1,2})\s+([A-Za-z]+)(?:\s+(20\d{2}))?$/);
-    if (compact) {
-      const months: Record<string, string> = {
-        january: '01', jan: '01', february: '02', feb: '02', march: '03', mar: '03',
-        april: '04', apr: '04', may: '05', june: '06', jun: '06', july: '07', jul: '07',
-        august: '08', aug: '08', september: '09', sep: '09', sept: '09', october: '10',
-        oct: '10', november: '11', nov: '11', december: '12', dec: '12',
-      };
-      const month = months[compact[3].toLowerCase()];
-      const year = compact[4] ?? String(new Date().getFullYear());
-      if (month) {
-        return [
-          `${year}-${month}-${compact[1].padStart(2, '0')}`,
-          `${year}-${month}-${compact[2].padStart(2, '0')}`,
-        ];
-      }
-    }
-    const parts = normalized.split(/\s+(?:to|until|through)\s+|[–—]/i).map((part) => part.trim()).filter(Boolean);
-    if (parts.length !== 2) return null;
-
-    const iso = (value: string): string | null => {
-      const match = value.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-      return match ? `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}` : null;
-    };
-    const startIso = iso(parts[0]);
-    const endIso = iso(parts[1]);
-    if (startIso && endIso) return [startIso, endIso];
-
-    const year = normalized.match(/\b(20\d{2})\b/)?.[1] ?? String(new Date().getFullYear());
-    const months: Record<string, string> = {
-      january: '01', jan: '01', february: '02', feb: '02', march: '03', mar: '03',
-      april: '04', apr: '04', may: '05', june: '06', jun: '06', july: '07', jul: '07',
-      august: '08', aug: '08', september: '09', sep: '09', sept: '09', october: '10',
-      oct: '10', november: '11', nov: '11', december: '12', dec: '12',
-    };
-    const sharedMonth = normalized.match(/\b([A-Za-z]+)\s+\d{1,2}\b/)?.[1]?.toLowerCase();
-    const first = parts[0].replace(/,/g, '').match(/(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)/i);
-    const second = parts[1].replace(/,/g, '').match(/(\d{1,2})(?:st|nd|rd|th)?(?:\s+([A-Za-z]+))?/i);
-    if (!first || !second) return null;
-    const startMonth = months[first[2].toLowerCase()];
-    const endMonth = months[(second[2] ?? sharedMonth ?? first[2]).toLowerCase()];
-    if (!startMonth || !endMonth) return null;
-    return [
-      `${year}-${startMonth}-${first[1].padStart(2, '0')}`,
-      `${year}-${endMonth}-${second[1].padStart(2, '0')}`,
-    ];
-  };
+  const canNext = current.key === 'dates'
+    ? Boolean((startDate && endDate) || dates.trim())
+    : Boolean(value);
 
   const handleNext = () => {
     if (!canNext) return;
     
     if (finish) {
-      const parsedDates = parseDateRange(dates);
+      const parsedDates = startDate && endDate ? [startDate, endDate] as [string, string] : parseDateRange(dates);
       if (!parsedDates) {
         toast({
-          title: 'Enter a date range',
-          description: 'Use dates like 2026-09-01 to 2026-09-10.',
+          title: 'We couldn’t understand those dates',
+          description: 'Try selecting them from the calendar or entering a date like September 18, 2026.',
           variant: 'destructive',
         });
         return;
@@ -226,7 +272,50 @@ export default function Plan() {
                 {current.title}
               </h1>
               <p className="mt-6 max-w-md text-[15px] leading-6 text-[#65706d]">{current.hint}</p>
-              {current.type === 'text' && (
+              {current.key === 'dates' ? (
+                <div className="mt-10 space-y-6">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="space-y-2 text-xs font-semibold text-[#65706d]">
+                      <span className="block uppercase tracking-[.14em]">Start date</span>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full rounded-xl border border-[#c9c1b2] bg-[#f8f6ef] px-4 py-3 text-base outline-none transition focus:border-[#203b47]"
+                        data-testid="input-plan-start-date"
+                      />
+                    </label>
+                    <label className="space-y-2 text-xs font-semibold text-[#65706d]">
+                      <span className="block uppercase tracking-[.14em]">End date</span>
+                      <input
+                        type="date"
+                        value={endDate}
+                        min={startDate || undefined}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full rounded-xl border border-[#c9c1b2] bg-[#f8f6ef] px-4 py-3 text-base outline-none transition focus:border-[#203b47]"
+                        data-testid="input-plan-end-date"
+                      />
+                    </label>
+                  </div>
+                  <div className="border-t border-[#d7d0c2] pt-5">
+                    <label className="space-y-2 text-xs font-semibold text-[#65706d]">
+                      <span className="block uppercase tracking-[.14em]">Or type a date range</span>
+                      <input
+                        autoFocus
+                        value={dates}
+                        onChange={(e) => setDates(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && canNext && handleNext()}
+                        className="w-full border-b-2 border-[#a9b5ad] bg-transparent py-4 text-2xl font-normal outline-none transition placeholder:text-[#a9b5ad] focus:border-[#203b47]"
+                        placeholder="e.g. Sep 18, 2026 – Sep 29, 2026"
+                        data-testid="input-plan-dates"
+                      />
+                    </label>
+                    <p className="mt-3 text-xs text-[#76827d]">
+                      We’ll normalize your dates automatically. You can use formats like 9/18/26 to 9/29/26.
+                    </p>
+                  </div>
+                </div>
+              ) : current.type === 'text' && (
                 <div className="mt-12">
                   <input
                     autoFocus
@@ -239,7 +328,7 @@ export default function Plan() {
                         ? 'e.g. The Alps, but not too much hiking'
                         : current.key === 'startingLocation'
                         ? 'e.g. Amsterdam'
-                        : 'e.g. 2026-09-01 to 2026-09-10'
+                        : 'e.g. Amsterdam'
                     }
                     data-testid={`input-plan-${current.key}`}
                   />

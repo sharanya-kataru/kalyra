@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './alternativeStrategy';
 export * from './budgetItem';
 export * from './budgetSummary';
 export * from './budgetSummaryCurrency';
@@ -35,3 +36,4 @@ export * from './tripHealthSubScoreLabel';
 export * from './tripInput';
 export * from './tripModification';
 export * from './tripModificationInput';
+export * from './tripRecommendation';

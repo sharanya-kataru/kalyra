@@ -256,6 +256,18 @@ components:
           type: string
         drawbacks:
           type: string
+        recommended_nights:
+          type: integer
+          minimum: 1
+        why_selected:
+          type: string
+        experience_highlights:
+          type: array
+          items:
+            type: string
+        estimated_cost_usd:
+          type: number
+          minimum: 0
       required:
         - name
         - score
@@ -492,6 +504,57 @@ components:
         - description
         - impact
 
+    TripRecommendation:
+      type: object
+      properties:
+        recommendation:
+          type: string
+        reason:
+          type: string
+        expected_benefit:
+          type: string
+        tradeoff:
+          type: string
+      required:
+        - recommendation
+        - reason
+        - expected_benefit
+        - tradeoff
+
+    AlternativeStrategy:
+      type: object
+      properties:
+        name:
+          type: string
+        best_for:
+          type: array
+          items:
+            type: string
+        changes:
+          type: string
+        gains:
+          type: string
+        sacrifices:
+          type: string
+        estimated_budget_impact_usd:
+          type: number
+        pacing_impact:
+          type: string
+        experience_match_impact:
+          type: string
+        recommended:
+          type: boolean
+      required:
+        - name
+        - best_for
+        - changes
+        - gains
+        - sacrifices
+        - estimated_budget_impact_usd
+        - pacing_impact
+        - experience_match_impact
+        - recommended
+
     TripAnalysis:
       type: object
       properties:
@@ -503,6 +566,14 @@ components:
             $ref: "#/components/schemas/DestinationScore"
         reasoning:
           type: string
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripRecommendation"
+        strategies:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlternativeStrategy"
       required:
         - trip_strategy
         - destinations
