@@ -149,6 +149,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /trips/{id}/refresh-live-data:
+    post:
+      operationId: refreshLiveData
+      tags: [trips]
+      summary: Refresh live flight and weather data for an itinerary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Live data refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Itinerary"
+        "404":
+          description: Trip not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Itinerary has not been generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /trips/{id}/modify:
     post:
       operationId: modifyItinerary
@@ -426,6 +457,8 @@ components:
         estimated_daily_cost_usd:
           type: number
           minimum: 0
+        weather:
+          $ref: "#/components/schemas/WeatherSummary"
       required:
         - day
         - date
@@ -446,6 +479,8 @@ components:
           type: number
         description:
           type: string
+        source_metadata:
+          $ref: "#/components/schemas/DataSourceMetadata"
       required:
         - category
         - estimated_amount
@@ -461,6 +496,9 @@ components:
           type: number
           minimum: 0
         flights_estimated:
+          type: number
+          minimum: 0
+        flights_live:
           type: number
           minimum: 0
         accommodation_estimated:
@@ -492,6 +530,210 @@ components:
         - total_estimated
         - remaining_budget
         - estimates_only
+
+    DataSourceMetadata:
+      type: object
+      properties:
+        provider:
+          type: string
+        data_type:
+          type: string
+        retrieved_at:
+          oneOf:
+            - type: string
+            - type: "null"
+        freshness:
+          type: string
+        is_live:
+          type: boolean
+        label:
+          type: string
+          enum: ["LIVE", "ESTIMATED", "ROAMWISE RECOMMENDED", "FALLBACK"]
+      required:
+        - provider
+        - data_type
+        - retrieved_at
+        - freshness
+        - is_live
+        - label
+
+    FlightSegment:
+      type: object
+      properties:
+        origin_airport:
+          type: string
+        destination_airport:
+          type: string
+        departure_datetime:
+          oneOf:
+            - type: string
+            - type: "null"
+        arrival_datetime:
+          oneOf:
+            - type: string
+            - type: "null"
+        airline:
+          type: string
+        flight_number:
+          type: string
+        duration_minutes:
+          type: integer
+          minimum: 0
+      required:
+        - origin_airport
+        - destination_airport
+        - departure_datetime
+        - arrival_datetime
+
+    FlightLeg:
+      type: object
+      properties:
+        carrier:
+          type: string
+        duration_minutes:
+          type: integer
+          minimum: 0
+        segments:
+          type: array
+          items:
+            $ref: "#/components/schemas/FlightSegment"
+      required:
+        - segments
+
+    FlightOffer:
+      type: object
+      properties:
+        provider_offer_id:
+          type: string
+        total_price_usd:
+          type: number
+          minimum: 0
+        outbound:
+          $ref: "#/components/schemas/FlightLeg"
+        inbound:
+          $ref: "#/components/schemas/FlightLeg"
+        carriers:
+          type: array
+          items:
+            type: string
+        stop_count:
+          type: integer
+          minimum: 0
+        total_duration_minutes:
+          oneOf:
+            - type: integer
+              minimum: 0
+            - type: "null"
+        departure_datetime:
+          oneOf:
+            - type: string
+            - type: "null"
+        arrival_datetime:
+          oneOf:
+            - type: string
+            - type: "null"
+        booking_id:
+          type: string
+        source_metadata:
+          $ref: "#/components/schemas/DataSourceMetadata"
+      required:
+        - provider_offer_id
+        - total_price_usd
+        - outbound
+        - inbound
+        - carriers
+        - stop_count
+        - total_duration_minutes
+        - departure_datetime
+        - arrival_datetime
+        - source_metadata
+
+    FlightSearch:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["live", "unavailable"]
+        origin:
+          type: string
+        destination:
+          type: string
+        departure_date:
+          type: string
+        return_date:
+          type: string
+        offers:
+          type: array
+          items:
+            $ref: "#/components/schemas/FlightOffer"
+        selected_offer:
+          oneOf:
+            - $ref: "#/components/schemas/FlightOffer"
+            - type: "null"
+        source_metadata:
+          $ref: "#/components/schemas/DataSourceMetadata"
+        recommendation_reason:
+          type: string
+        message:
+          type: string
+      required:
+        - status
+        - origin
+        - destination
+        - departure_date
+        - return_date
+        - offers
+        - selected_offer
+        - source_metadata
+
+    WeatherSummary:
+      type: object
+      properties:
+        location:
+          type: string
+        date:
+          type: string
+        min_temperature_c:
+          type: number
+        max_temperature_c:
+          type: number
+        precipitation_probability:
+          oneOf:
+            - type: number
+            - type: "null"
+        weather_code:
+          type: integer
+        description:
+          type: string
+        source_metadata:
+          $ref: "#/components/schemas/DataSourceMetadata"
+      required:
+        - location
+        - date
+        - min_temperature_c
+        - max_temperature_c
+        - precipitation_probability
+        - weather_code
+        - description
+        - source_metadata
+
+    LiveDataBundle:
+      type: object
+      properties:
+        flight_search:
+          $ref: "#/components/schemas/FlightSearch"
+        weather:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeatherSummary"
+        refreshed_at:
+          type: string
+        planning_note:
+          type: string
+      required:
+        - flight_search
+        - weather
+        - refreshed_at
 
     TradeoffItem:
       type: object
@@ -667,6 +909,8 @@ components:
             $ref: "#/components/schemas/BudgetItem"
         budget_summary:
           $ref: "#/components/schemas/BudgetSummary"
+        live_data:
+          $ref: "#/components/schemas/LiveDataBundle"
         reasoning:
           type: string
         tradeoffs:

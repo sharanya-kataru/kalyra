@@ -503,6 +503,77 @@ export const useGenerateItinerary = <TError = ErrorType<ErrorResponse>,
       return useMutation(getGenerateItineraryMutationOptions(options));
     }
 
+export const getRefreshLiveDataUrl = (id: string,) => {
+
+
+
+
+  return `/api/trips/${id}/refresh-live-data`
+}
+
+/**
+ * @summary Refresh live flight and weather data for an itinerary
+ */
+export const refreshLiveData = async (id: string, options?: RequestInit): Promise<Itinerary> => {
+
+  return customFetch<Itinerary>(getRefreshLiveDataUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRefreshLiveDataMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshLiveData>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshLiveData>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['refreshLiveData'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshLiveData>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  refreshLiveData(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefreshLiveDataMutationResult = NonNullable<Awaited<ReturnType<typeof refreshLiveData>>>
+
+    export type RefreshLiveDataMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Refresh live flight and weather data for an itinerary
+ */
+export const useRefreshLiveData = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshLiveData>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof refreshLiveData>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getRefreshLiveDataMutationOptions(options));
+    }
+
 export const getModifyItineraryUrl = (id: string,) => {
 
 

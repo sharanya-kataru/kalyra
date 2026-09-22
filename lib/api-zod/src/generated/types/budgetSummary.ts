@@ -14,6 +14,8 @@ export interface BudgetSummary {
   /** @minimum 0 */
   flights_estimated: number;
   /** @minimum 0 */
+  flights_live?: number;
+  /** @minimum 0 */
   accommodation_estimated: number;
   /** @minimum 0 */
   transportation_estimated: number;

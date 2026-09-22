@@ -7,18 +7,21 @@ import {
   ChevronDown,
   ChevronRight,
   Compass,
+  CloudSun,
   DollarSign,
   Home,
   Info,
   Luggage,
   MapPin,
+  Plane,
+  RefreshCw,
   Sparkles,
   TrainFront,
   Wallet,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useTripContext } from '@/context/TripContext';
-import { useModifyItinerary } from '@workspace/api-client-react';
+import { useModifyItinerary, useRefreshLiveData } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
 import type { ChangeMade, TripHealthScore } from '@workspace/api-client-react';
 
@@ -81,6 +84,37 @@ const DIMENSIONS: DimensionKey[] = [
 function formatUsd(value: unknown) {
   const amount = Number(value);
   return `$${(Number.isFinite(amount) && amount >= 0 ? Math.round(amount) : 0).toLocaleString()}`;
+}
+
+function formatFlightDateTime(value: string | null | undefined) {
+  return value ? value.replace('T', ' ') : 'Unavailable';
+}
+
+function formatCheckedAt(value: string | null | undefined) {
+  if (!value) return 'Not checked';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 'Not checked' : parsed.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function SourcePill({ label, provider, freshness }: { label: string; provider?: string; freshness?: string }) {
+  const isLive = label === 'LIVE';
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono-custom text-[10px] uppercase tracking-wide ${
+        isLive
+          ? 'border-[#b2d3bc] bg-[#e7f0e9] text-[#3d6b50]'
+          : 'border-[#d7d0c2] bg-[#f5f3ec] text-[#65706d]'
+      }`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${isLive ? 'bg-[#6b9c7b]' : 'bg-[#bb7a52]'}`} />
+      {label}{provider ? ` · ${provider}` : ''}{freshness ? ` · ${freshness}` : ''}
+    </span>
+  );
 }
 
 function ScoreBadge({ label }: { label: string }) {
@@ -201,6 +235,7 @@ export default function Trip() {
   const { tripId, itinerary, setItinerary } = useTripContext();
   const { toast } = useToast();
   const modifyItinerary = useModifyItinerary();
+  const refreshLiveData = useRefreshLiveData();
 
   useEffect(() => {
     if (!tripId || !itinerary) {
@@ -261,6 +296,22 @@ export default function Trip() {
             description: 'Unable to update your trip. Please try again.',
             variant: 'destructive',
           });
+        },
+      }
+    );
+  };
+
+  const handleRefreshLiveData = () => {
+    if (!tripId || refreshLiveData.isPending) return;
+    refreshLiveData.mutate(
+      { id: tripId },
+      {
+        onSuccess: (data) => {
+          setItinerary(data);
+          toast({ title: 'Live travel data refreshed', description: 'Flight prices and available weather forecasts are up to date.' });
+        },
+        onError: () => {
+          toast({ title: 'Refresh failed', description: 'We kept your existing itinerary data. Please try again.', variant: 'destructive' });
         },
       }
     );
@@ -459,6 +510,14 @@ export default function Trip() {
               </div>
             </section>
 
+            {itinerary.live_data && (
+              <LiveTravelData
+                data={itinerary.live_data}
+                onRefresh={handleRefreshLiveData}
+                refreshing={refreshLiveData.isPending}
+              />
+            )}
+
             {/* ── TRIP HEALTH SCORE ─────────────────────────────────────── */}
             {itinerary.health_score && (
               <section className="border-t border-[#d7d0c2] py-12 sm:py-16">
@@ -559,6 +618,27 @@ export default function Trip() {
                             </p>
                           </div>
                         )}
+                        {day.weather && (
+                          <div className="rounded-xl border border-[#c7d8cc] bg-[#eef4ef] p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="flex items-center gap-2 text-xs font-semibold text-[#3d6b50]">
+                                <CloudSun size={14} /> Forecast
+                              </p>
+                              <SourcePill
+                                label={day.weather.source_metadata.label}
+                                provider={day.weather.source_metadata.provider}
+                              />
+                            </div>
+                            <p className="mt-2 text-sm font-semibold text-[#203b47]">
+                              {Math.round(day.weather.min_temperature_c)}–{Math.round(day.weather.max_temperature_c)}°C · {day.weather.description}
+                            </p>
+                            {day.weather.precipitation_probability !== null && (
+                              <p className="mt-1 text-xs text-[#65706d]">
+                                {day.weather.precipitation_probability}% chance of precipitation
+                              </p>
+                            )}
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 border-t border-[#d7d0c2] pt-3 text-xs text-[#65706d]">
                           <DollarSign size={14} />
                           <span>Estimated daily cost: {formatUsd(day.estimated_daily_cost_usd)}</span>
@@ -598,7 +678,9 @@ export default function Trip() {
                   </p>
                 </div>
               </div>
-              <p className="mt-4 text-xs text-[#76827d]">Prices and availability shown here are estimates unless a live provider is explicitly connected.</p>
+               <p className="mt-4 text-xs text-[#76827d]">
+                 Flight prices and forecasts are labeled by source. Accommodation, activities, and local transport remain Roamwise estimates.
+               </p>
             </div>
             <div className="mb-8">
               <p className="font-mono-custom text-[11px] uppercase tracking-[.18em] text-[#bb7a52]">Budget breakdown</p>
@@ -788,6 +870,163 @@ export default function Trip() {
 // ---------------------------------------------------------------------------
 // Checklist sub-component
 // ---------------------------------------------------------------------------
+
+function LiveTravelData({
+  data,
+  onRefresh,
+  refreshing,
+}: {
+  data: any;
+  onRefresh: () => void;
+  refreshing: boolean;
+}) {
+  const flight = data.flight_search;
+  const selected = flight?.selected_offer;
+  const weatherCount = data.weather?.length ?? 0;
+  const surfacedOffers = selected
+    ? [selected, ...(flight?.offers ?? []).filter((offer: any) => offer.provider_offer_id !== selected.provider_offer_id).slice(0, 2)]
+    : [];
+  const lowestPriceId = (flight?.offers ?? []).slice().sort((left: any, right: any) => left.total_price_usd - right.total_price_usd)[0]?.provider_offer_id;
+  const fastestId = (flight?.offers ?? []).slice().sort((left: any, right: any) => (left.total_duration_minutes ?? Infinity) - (right.total_duration_minutes ?? Infinity))[0]?.provider_offer_id;
+  const formatDuration = (minutes: number | null | undefined) => {
+    if (!minutes) return '—';
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
+  };
+
+  return (
+    <section className="border-t border-[#d7d0c2] py-12 sm:py-16" data-testid="live-travel-data">
+      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div>
+          <p className="font-mono-custom text-[11px] uppercase tracking-[.18em] text-[#bb7a52]">Live travel data</p>
+          <h2 className="mt-2 font-display text-4xl tracking-[-.04em]">Decisions with a little more signal.</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[#65706d]">
+            Provider-backed values are kept separate from Roamwise recommendations and estimates.
+          </p>
+        </div>
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-[#c9c1b2] px-4 py-2.5 text-xs font-semibold transition hover:border-[#203b47] disabled:cursor-wait disabled:opacity-50"
+          data-testid="button-refresh-live-data"
+        >
+          <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+          {refreshing ? 'Refreshing…' : 'Refresh live data'}
+        </button>
+      </div>
+
+      <div className="mt-8 grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-[#d7d0c2] bg-[#fbfaf6] p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Plane size={17} className="text-[#bb7a52]" />
+              <p className="text-sm font-semibold">Round-trip flights</p>
+            </div>
+            <SourcePill
+              label={flight?.source_metadata?.label ?? 'FALLBACK'}
+              provider={flight?.source_metadata?.provider}
+              freshness={flight?.source_metadata?.freshness}
+            />
+          </div>
+          {selected ? (
+            <>
+              <div className="mt-7 flex items-end justify-between gap-3">
+                <div>
+                  <p className="font-display text-4xl">{formatUsd(selected.total_price_usd)}</p>
+                  <p className="mt-1 text-xs text-[#65706d]">
+                    {flight.origin} → {flight.destination} · {selected.carriers.join(' + ') || 'Selected carriers'}
+                  </p>
+                </div>
+                <p className="text-right text-xs text-[#65706d]">
+                  {selected.stop_count === 0 ? 'Nonstop' : `${selected.stop_count} stop${selected.stop_count === 1 ? '' : 's'}`}<br />
+                  {formatDuration(selected.total_duration_minutes)}
+                </p>
+              </div>
+              <p className="mt-4 text-xs leading-5 text-[#65706d]">
+                {flight.recommendation_reason ?? 'Roamwise chose a balanced offer using price, stops, and total travel time rather than cheapest price alone.'}
+              </p>
+              {data.planning_note && (
+                <p className="mt-3 rounded-lg bg-[#f5f3ec] px-3 py-2 text-xs leading-5 text-[#65706d]">
+                  {data.planning_note}
+                </p>
+              )}
+              <p className="mt-3 text-[10px] uppercase tracking-wide text-[#a0a8a4]">
+                Last checked {formatCheckedAt(flight.source_metadata?.retrieved_at)}
+              </p>
+              {flight.offers.length > 1 && (
+                <div className="mt-4 border-t border-[#e2ddd2] pt-4">
+                  <p className="text-[10px] uppercase tracking-wide text-[#a0a8a4]">Shortlist</p>
+                  <div className="mt-2 space-y-2">
+                    {surfacedOffers.map((offer: any) => {
+                      const label = offer.provider_offer_id === selected.provider_offer_id
+                        ? 'ROAMWISE RECOMMENDED'
+                        : offer.provider_offer_id === lowestPriceId
+                          ? 'LOWEST PRICE'
+                          : offer.provider_offer_id === fastestId
+                            ? 'FASTEST'
+                            : 'ALTERNATIVE';
+                      return (
+                        <div key={offer.provider_offer_id} className="flex items-center justify-between gap-3 rounded-lg bg-[#f5f3ec] px-3 py-2 text-xs">
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold">{offer.carriers.join(' + ') || 'Carrier unavailable'}</p>
+                            <p className="mt-0.5 truncate text-[10px] text-[#65706d]">
+                              {formatFlightDateTime(offer.departure_datetime)} → {formatFlightDateTime(offer.arrival_datetime)}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="font-semibold">{formatUsd(offer.total_price_usd)}</p>
+                            <p className="text-[10px] text-[#65706d]">{label}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="mt-7 text-sm leading-6 text-[#65706d]">
+              {flight?.message ?? 'Live fares are unavailable; the budget keeps a clearly labeled estimate.'}
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-[#d7d0c2] bg-[#fbfaf6] p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <CloudSun size={17} className="text-[#bb7a52]" />
+              <p className="text-sm font-semibold">Daily weather</p>
+            </div>
+            {data.weather?.[0] && (
+              <SourcePill
+                label={data.weather[0].source_metadata.label}
+                provider={data.weather[0].source_metadata.provider}
+                freshness={data.weather[0].source_metadata.freshness}
+              />
+            )}
+          </div>
+          {weatherCount > 0 ? (
+            <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {data.weather.slice(0, 6).map((summary: any) => (
+                <div key={`${summary.location}-${summary.date}`} className="rounded-xl bg-[#eef4ef] p-3">
+                  <p className="truncate text-[10px] font-semibold text-[#3d6b50]">{summary.location}</p>
+                  <p className="mt-2 text-xs text-[#65706d]">{summary.date}</p>
+                  <p className="mt-1 text-sm font-semibold">{Math.round(summary.min_temperature_c)}–{Math.round(summary.max_temperature_c)}°C</p>
+                  <p className="mt-1 truncate text-[10px] text-[#65706d]">{summary.description}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-7 text-sm leading-6 text-[#65706d]">
+              Weather forecasts are only shown inside Open-Meteo’s legitimate forecast window. This trip is outside that window or the provider is unavailable.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function Checklist({
   checked,

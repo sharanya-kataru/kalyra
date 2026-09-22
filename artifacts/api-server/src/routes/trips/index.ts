@@ -21,7 +21,8 @@ import {
 } from "../../lib/ai";
 import { computeTripHealthScore } from "../../lib/scoring";
 import { DESTINATIONS } from "../../lib/destinations";
-import { parseTripDuration } from "../../lib/trip-utils";
+import { parseDateRangeFromText, parseTripDuration } from "../../lib/trip-utils";
+import { enrichItineraryWithLiveData } from "../../lib/live-data";
 
 const router: IRouter = Router();
 
@@ -74,6 +75,7 @@ function formatItinerary(
     daily_schedule: row.dailySchedule as any,
     budget_breakdown: row.budgetBreakdown as any,
     budget_summary: row.budgetSummary as any,
+    live_data: row.liveData as any,
     reasoning: row.reasoning,
     tradeoffs: row.tradeoffs as any,
   }, tripData);
@@ -93,6 +95,7 @@ function formatItinerary(
     daily_schedule: itineraryData.daily_schedule,
     budget_breakdown: itineraryData.budget_breakdown,
     budget_summary: itineraryData.budget_summary,
+    live_data: itineraryData.live_data,
     reasoning: itineraryData.reasoning,
     tradeoffs: itineraryData.tradeoffs,
     health_score,
@@ -215,7 +218,10 @@ router.post("/trips/:id/generate", async (req, res): Promise<void> => {
   req.log.info({ tripId: trip.id, aiEnabled: hasAI() }, "Generating itinerary");
 
   const tripData = buildTripData(trip);
-  const itineraryData = await generateItinerary(tripData);
+  const itineraryData = await enrichItineraryWithLiveData(
+    await generateItinerary(tripData),
+    tripData
+  );
 
   // Get current latest version number
   const existing = await loadLatestItinerary(trip.id);
@@ -235,6 +241,7 @@ router.post("/trips/:id/generate", async (req, res): Promise<void> => {
       dailySchedule: itineraryData.daily_schedule,
       budgetBreakdown: itineraryData.budget_breakdown,
       budgetSummary: itineraryData.budget_summary,
+      liveData: itineraryData.live_data ?? null,
       reasoning: itineraryData.reasoning,
       tradeoffs: itineraryData.tradeoffs,
       version,
@@ -242,6 +249,61 @@ router.post("/trips/:id/generate", async (req, res): Promise<void> => {
     .returning();
 
   res.json(formatItinerary(saved, tripData));
+});
+
+// POST /trips/:id/refresh-live-data — refresh provider-backed flight and weather data
+router.post("/trips/:id/refresh-live-data", async (req, res): Promise<void> => {
+  const params = GetTripParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const trip = await loadTrip(params.data.id);
+  if (!trip) {
+    res.status(404).json({ error: "Trip not found" });
+    return;
+  }
+  const existing = await loadLatestItinerary(trip.id);
+  if (!existing) {
+    res.status(409).json({ error: "Generate an itinerary before refreshing live travel data." });
+    return;
+  }
+
+  const tripData = buildTripData(trip);
+  const refreshed = await enrichItineraryWithLiveData(
+    normalizeItinerary({
+      trip_id: existing.tripId,
+      trip_strategy: existing.tripStrategy,
+      currency: existing.currency as "USD",
+      total_days: existing.totalDays,
+      total_nights: existing.totalNights,
+      route: existing.route as RouteStop[],
+      destinations: existing.destinations as any,
+      daily_itinerary: existing.dailyItinerary as any,
+      daily_schedule: existing.dailySchedule as any,
+      budget_breakdown: existing.budgetBreakdown as any,
+      budget_summary: existing.budgetSummary as any,
+      live_data: existing.liveData as any,
+      reasoning: existing.reasoning,
+      tradeoffs: existing.tradeoffs as any,
+    }, tripData),
+    tripData
+  );
+
+  const [updated] = await db
+    .update(itinerariesTable)
+    .set({
+      budgetBreakdown: refreshed.budget_breakdown,
+      budgetSummary: refreshed.budget_summary,
+      dailyItinerary: refreshed.daily_itinerary,
+      dailySchedule: refreshed.daily_schedule,
+      liveData: refreshed.live_data ?? null,
+    })
+    .where(eq(itinerariesTable.id, existing.id))
+    .returning();
+
+  res.json(formatItinerary(updated, tripData));
 });
 
 // POST /trips/:id/modify — AI itinerary modification
@@ -286,12 +348,87 @@ router.post("/trips/:id/modify", async (req, res): Promise<void> => {
     daily_schedule: currentItinerary.dailySchedule as any,
     budget_breakdown: currentItinerary.budgetBreakdown as any,
     budget_summary: currentItinerary.budgetSummary as any,
+    live_data: currentItinerary.liveData as any,
     reasoning: currentItinerary.reasoning,
     tradeoffs: currentItinerary.tradeoffs as any,
   }, tripData);
 
   // Compute before-score to include in response
   const scoreBefore = computeTripHealthScore(currentData, tripData);
+
+  const requestedDuration = parseDateRangeFromText(bodyParsed.data.user_request);
+  if (requestedDuration) {
+    const updatedTripData: TripData = {
+      ...tripData,
+      start_date: requestedDuration.start_date,
+      end_date: requestedDuration.end_date,
+    };
+    const regenerated = await enrichItineraryWithLiveData(
+      await generateItinerary(updatedTripData),
+      updatedTripData
+    );
+    const scoreAfter = computeTripHealthScore(regenerated, updatedTripData);
+    const scoreDelta = scoreAfter.overall - scoreBefore.overall;
+    const scoreSign = scoreDelta >= 0 ? "+" : "";
+    const scoreReasoning = `Trip dates were updated and live travel data was refreshed. Actual Trip Health Score: ${scoreBefore.overall} → ${scoreAfter.overall} (${scoreSign}${scoreDelta}).`;
+
+    await db
+      .update(tripsTable)
+      .set({
+        startDate: updatedTripData.start_date,
+        endDate: updatedTripData.end_date,
+      })
+      .where(eq(tripsTable.id, trip.id));
+
+    const [savedItinerary] = await db
+      .insert(itinerariesTable)
+      .values({
+        tripId: trip.id,
+        tripStrategy: regenerated.trip_strategy,
+        currency: regenerated.currency,
+        totalDays: regenerated.total_days,
+        totalNights: regenerated.total_nights,
+        route: regenerated.route,
+        destinations: regenerated.destinations,
+        dailyItinerary: regenerated.daily_itinerary,
+        dailySchedule: regenerated.daily_schedule,
+        budgetBreakdown: regenerated.budget_breakdown,
+        budgetSummary: regenerated.budget_summary,
+        liveData: regenerated.live_data ?? null,
+        reasoning: scoreReasoning,
+        tradeoffs: regenerated.tradeoffs,
+        version: currentItinerary.version + 1,
+      })
+      .returning();
+
+    const [savedMod] = await db
+      .insert(tripModificationsTable)
+      .values({
+        tripId: trip.id,
+        userRequest: bodyParsed.data.user_request,
+        previousItineraryId: currentItinerary.id,
+        updatedItineraryId: savedItinerary.id,
+        changesMade: [
+          `Trip dates updated to ${updatedTripData.start_date} through ${updatedTripData.end_date}.`,
+          "Live flight and weather data refreshed for the new dates.",
+        ],
+        reasoning: scoreReasoning,
+      })
+      .returning();
+
+    res.json({
+      id: savedMod.id,
+      trip_id: savedMod.tripId,
+      user_request: savedMod.userRequest,
+      changes_made: savedMod.changesMade,
+      reasoning: savedMod.reasoning,
+      score_before: scoreBefore,
+      score_after: scoreAfter,
+      itinerary: formatItinerary(savedItinerary, updatedTripData),
+      created_at: savedMod.createdAt.toISOString(),
+    });
+    return;
+  }
 
   const result = await modifyItinerary(tripData, currentData, bodyParsed.data.user_request);
 
@@ -318,6 +455,7 @@ router.post("/trips/:id/modify", async (req, res): Promise<void> => {
       dailySchedule: result.itinerary.daily_schedule,
       budgetBreakdown: result.itinerary.budget_breakdown,
       budgetSummary: result.itinerary.budget_summary,
+      liveData: result.itinerary.live_data ?? currentItinerary.liveData ?? null,
       reasoning: scoreReasoning,
       tradeoffs: result.itinerary.tradeoffs,
       version: currentItinerary.version + 1,

@@ -7,6 +7,7 @@
  */
 import type { DailyActivityPart } from './dailyActivityPart';
 import type { DailyTransportation } from './dailyTransportation';
+import type { WeatherSummary } from './weatherSummary';
 
 export interface DailyItinerary {
   day: number;
@@ -19,4 +20,5 @@ export interface DailyItinerary {
   transportation: DailyTransportation;
   /** @minimum 0 */
   estimated_daily_cost_usd: number;
+  weather?: WeatherSummary;
 }

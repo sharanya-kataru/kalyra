@@ -7,9 +7,13 @@
  */
 import type { DataSourceMetadata } from './dataSourceMetadata';
 
-export interface BudgetItem {
-  category: string;
-  estimated_amount: number;
+export interface WeatherSummary {
+  location: string;
+  date: string;
+  min_temperature_c: number;
+  max_temperature_c: number;
+  precipitation_probability: number | null;
+  weather_code: number;
   description: string;
-  source_metadata?: DataSourceMetadata;
+  source_metadata: DataSourceMetadata;
 }

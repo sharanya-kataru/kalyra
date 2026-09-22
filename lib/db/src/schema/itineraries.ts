@@ -15,6 +15,7 @@ export const itinerariesTable = pgTable("itineraries", {
   dailySchedule: jsonb("daily_schedule").notNull(),
   budgetBreakdown: jsonb("budget_breakdown").notNull(),
   budgetSummary: jsonb("budget_summary").notNull().default({}),
+  liveData: jsonb("live_data"),
   reasoning: text("reasoning").notNull(),
   tradeoffs: jsonb("tradeoffs").notNull(),
   version: integer("version").notNull().default(1),

@@ -11,6 +11,7 @@ import type { DailyItinerary } from './dailyItinerary';
 import type { DailySchedule } from './dailySchedule';
 import type { DestinationScore } from './destinationScore';
 import type { ItineraryCurrency } from './itineraryCurrency';
+import type { LiveDataBundle } from './liveDataBundle';
 import type { RouteStop } from './routeStop';
 import type { TradeoffItem } from './tradeoffItem';
 import type { TripHealthScore } from './tripHealthScore';
@@ -30,6 +31,7 @@ export interface Itinerary {
   daily_schedule: DailySchedule[];
   budget_breakdown: BudgetItem[];
   budget_summary: BudgetSummary;
+  live_data?: LiveDataBundle;
   reasoning: string;
   tradeoffs: TradeoffItem[];
   health_score: TripHealthScore | null;

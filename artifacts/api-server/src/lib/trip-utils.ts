@@ -16,6 +16,7 @@ export interface BudgetSummary {
   currency: "USD";
   total_budget: number;
   flights_estimated: number;
+  flights_live?: number;
   accommodation_estimated: number;
   transportation_estimated: number;
   food_estimated: number;
@@ -204,6 +205,24 @@ export function parseTripDuration(startInput: string, endInput: string): TripDur
   };
 }
 
+export function parseDateRangeFromText(value: string): TripDuration | null {
+  const normalized = value.replace(/[.!?]+$/g, "").replace(/\s+/g, " ").trim();
+  const candidates = [
+    normalized.match(/\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\s*(?:to|until|through|-|–|—)\s*\d{4}[-/]\d{1,2}[-/]\d{1,2}\b/i)?.[0],
+    normalized.match(/\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s*(?:to|until|through|-|–|—)\s*\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/i)?.[0],
+    normalized.match(/\b[A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?\s*(?:to|until|through|-|–|—)\s*\d{1,2}(?:st|nd|rd|th)?(?:,\s*|\s+)\d{2,4}\b/i)?.[0],
+  ].filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const candidate of candidates) {
+    try {
+      return parseTripDuration(candidate, "");
+    } catch {
+      // Try the next supported range shape.
+    }
+  }
+  return null;
+}
+
 export function daysBetween(start: string, end: string): number {
   return parseTripDuration(start, end).total_days;
 }
@@ -225,7 +244,7 @@ function finiteNonNegative(value: unknown): number {
  */
 export function calculateBudgetSummary(
   totalBudget: number,
-  breakdown: Array<{ category: string; estimated_amount: number }>
+  breakdown: Array<{ category: string; estimated_amount: number; source_metadata?: { is_live?: boolean } }>
 ): BudgetSummary {
   const safeBudget = finiteNonNegative(totalBudget);
   const find = (names: string[]) =>
@@ -234,6 +253,9 @@ export function calculateBudgetSummary(
       .reduce((sum, item) => sum + finiteNonNegative(item.estimated_amount), 0);
 
   const flights = find(["flight", "air"]);
+  const flightsLive = breakdown
+    .filter((item) => ["flight", "air"].some((name) => item.category.toLowerCase().includes(name)))
+    .some((item) => item.source_metadata?.is_live === true);
   const accommodation = find(["accommodation", "hotel", "lodging"]);
   const transportation = find(["transport", "transfer"]);
   const food = find(["food", "meal", "dining"]);
@@ -246,14 +268,15 @@ export function calculateBudgetSummary(
   return {
     currency: "USD",
     total_budget: Math.round(safeBudget),
-    flights_estimated: Math.round(flights),
+    flights_estimated: flightsLive ? 0 : Math.round(flights),
+    ...(flightsLive ? { flights_live: Math.round(flights) } : {}),
     accommodation_estimated: Math.round(accommodation),
     transportation_estimated: Math.round(transportation),
     food_estimated: Math.round(food),
     activities_estimated: Math.round(activities),
     total_estimated: Math.round(totalEstimated),
     remaining_budget: Math.round(safeBudget - totalEstimated),
-    estimates_only: true,
+    estimates_only: !flightsLive,
   };
 }
 

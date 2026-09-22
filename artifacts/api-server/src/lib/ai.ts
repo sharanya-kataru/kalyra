@@ -16,6 +16,9 @@ import {
   type BudgetSummary,
 } from "./trip-utils";
 import { collectPlaceContext } from "./places";
+import type { FlightSearchResult } from "./flights";
+import type { WeatherSummary } from "./weather";
+import { estimatedSource, type DataSourceMetadata } from "./sources";
 
 // Client is lazy — only constructed if the env var is present
 let _client: OpenAI | null = null;
@@ -134,6 +137,7 @@ export interface DailyItinerary {
   food_recommendations: string[];
   transportation: DailyTransportation;
   estimated_daily_cost_usd: number;
+  weather?: WeatherSummary;
 }
 
 export interface DailySchedule {
@@ -147,6 +151,7 @@ export interface BudgetItem {
   category: string;
   estimated_amount: number;
   description: string;
+  source_metadata?: DataSourceMetadata;
 }
 
 export interface TradeoffItem {
@@ -168,6 +173,12 @@ export interface ItineraryData {
   budget_summary: BudgetSummary;
   reasoning: string;
   tradeoffs: TradeoffItem[];
+  live_data?: {
+    flight_search: FlightSearchResult;
+    weather: WeatherSummary[];
+    refreshed_at: string;
+    planning_note?: string;
+  };
 }
 
 export interface ChangeMade {
@@ -341,6 +352,9 @@ function normalizeDailyItinerary(
     const food = Array.isArray(rich.food_recommendations)
       ? rich.food_recommendations.map(String).filter(Boolean)
       : [String(legacyActivities.food_recommendation ?? "Ask your accommodation for a local recommendation.")];
+    const weather = rich.weather && typeof rich.weather === "object"
+      ? rich.weather as WeatherSummary
+      : undefined;
 
     result.push({
       day: index + 1,
@@ -361,6 +375,7 @@ function normalizeDailyItinerary(
           morning.estimated_cost_usd + afternoon.estimated_cost_usd + evening.estimated_cost_usd,
         dailyFallbackCost
       ),
+      ...(weather ? { weather } : {}),
     });
   }
 
@@ -459,10 +474,13 @@ function normalizeBudgetBreakdown(
             category,
             estimated_amount: sanitizeAmount(row.estimated_amount, 0),
             description: String(row.description ?? "Estimated; no live provider connected."),
+            source_metadata: row.source_metadata && typeof row.source_metadata === "object"
+              ? row.source_metadata as DataSourceMetadata
+              : estimatedSource("budget_estimate"),
           }
         : null;
     })
-    .filter((item): item is BudgetItem => item !== null);
+    .filter((item): item is NonNullable<typeof item> => item !== null);
 
   const defaults = [
     ["Flights", 0, `Estimated round trip from ${trip.starting_location}; live flight data not connected.`],
@@ -474,13 +492,19 @@ function normalizeBudgetBreakdown(
 
   const output = defaults.map(([category, fallbackAmount, description]) => {
     const existing = normalized.find((item) => item.category.toLowerCase().includes(category.toLowerCase().slice(0, 5)));
-    return existing ?? { category, estimated_amount: fallbackAmount, description };
+    return existing ?? {
+      category,
+      estimated_amount: fallbackAmount,
+      description,
+      source_metadata: estimatedSource("budget_estimate"),
+    };
   });
 
   return output.map((item) => ({
     ...item,
     estimated_amount: sanitizeAmount(item.estimated_amount, 0),
     description: item.description || "Estimate unavailable.",
+    source_metadata: item.source_metadata ?? estimatedSource("budget_estimate"),
   }));
 }
 
@@ -532,6 +556,7 @@ export function normalizeItinerary(
           impact: String((item as TradeoffItem).impact ?? "See the Trip Health Score for detail."),
         }))
       : [],
+    live_data: raw.live_data,
   };
 }
 

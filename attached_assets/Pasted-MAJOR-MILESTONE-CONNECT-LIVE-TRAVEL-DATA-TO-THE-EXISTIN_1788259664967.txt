@@ -1,0 +1,1446 @@
+MAJOR MILESTONE: CONNECT LIVE TRAVEL DATA TO THE EXISTING ROAMWISE PLANNING ENGINE
+
+IMPORTANT: THIS IS AN EXISTING, VERIFIED APPLICATION.
+
+DO NOT rebuild Roamwise.
+DO NOT redesign the application.
+DO NOT replace the existing Travel Decision Engine.
+DO NOT redo the date work.
+DO NOT redo the itinerary engine.
+DO NOT redo the scoring system.
+DO NOT redo refinement/versioning.
+DO NOT replace working deterministic fallback behavior.
+DO NOT create duplicate provider implementations.
+
+The previous milestone has already been verified successfully.
+
+Existing verified functionality includes:
+
+- flexible typed travel dates
+- start/end date handling
+- normalized dates
+- correct total days and nights
+- Travel Decision Analysis
+- destination scoring
+- Roamwise Recommendations
+- alternative trip strategies
+- country → specific destination-base expansion
+- complete daily itineraries
+- destination breakdowns
+- practical notes
+- USD-only budget output
+- Trip Health Score
+- trip refinements
+- before/after score explanations
+- itinerary versioning
+- PostgreSQL persistence
+- deterministic OpenAI-disabled fallback
+- optional Geoapify support
+- complete Guatemala and Italy + Switzerland flows
+
+PRESERVE ALL OF THIS.
+
+============================================================
+PRIMARY GOAL
+============================================================
+
+Connect trustworthy external travel data to the EXISTING planning system.
+
+Roamwise should evolve from:
+
+good planning intelligence + estimates
+
+into:
+
+good planning intelligence + real-world data + clearly labeled estimates where live data is unavailable.
+
+The principle is:
+
+AI handles judgment and explanation.
+
+Application code handles:
+- arithmetic
+- dates
+- validation
+- provider calls
+- normalization
+- caching
+- source tracking
+
+External providers supply facts.
+
+The Travel Decision Engine decides which facts create the most Experience Value for the traveler.
+
+============================================================
+PROVIDERS FOR THIS MILESTONE
+============================================================
+
+Use these providers:
+
+1. IGNAV
+Purpose:
+LIVE flight-search data.
+
+The Replit Secret already exists:
+
+IGNAV_API_KEY
+
+Read it ONLY from the server-side environment.
+
+Never:
+- expose the API key to the frontend
+- log the API key
+- hardcode the API key
+- return the API key in errors
+- commit it to source control
+
+Follow Ignav's CURRENT official API documentation.
+
+Do NOT guess endpoints or response fields.
+
+If the current official documentation differs from assumptions in the existing architecture, adapt the provider implementation rather than changing the entire application.
+
+------------------------------------------------------------
+
+2. GEOAPIFY
+
+Geoapify support already exists in some form.
+
+INSPECT IT FIRST.
+
+Do not replace or duplicate it unnecessarily.
+
+Use Geoapify for appropriate real-world location data such as:
+
+- attractions
+- landmarks
+- parks
+- viewpoints
+- museums
+- cultural places
+- geographic coordinates
+- relevant POIs
+- routing/geographic calculations where supported by the existing implementation
+
+If a GEOAPIFY_API_KEY is configured, use it.
+
+If unavailable, retain the existing fallback behavior.
+
+------------------------------------------------------------
+
+3. OPEN-METEO
+
+Add Open-Meteo behind a WeatherProvider abstraction.
+
+Open-Meteo does not require a secret for its standard public API.
+
+Follow its CURRENT official API documentation.
+
+Use weather only where scientifically/time-wise appropriate.
+
+IMPORTANT:
+
+Do NOT present a long-term seasonal estimate as a current weather forecast.
+
+If trip dates are inside the provider's reliable forecast window:
+label the data:
+
+LIVE FORECAST
+
+If trip dates are too far in the future:
+do NOT fabricate a forecast.
+
+Instead either:
+
+- omit the forecast
+OR
+- show clearly labeled historical/climate context only if the data source legitimately supports that usage.
+
+Never label climate averages as:
+"forecast"
+
+============================================================
+1. FIRST AUDIT THE CURRENT PROVIDER ARCHITECTURE
+============================================================
+
+Before coding:
+
+inspect the existing:
+
+FlightProvider
+HotelProvider
+PlacesProvider
+ActivityProvider
+TransportProvider
+WeatherProvider
+
+or equivalent abstractions.
+
+Determine:
+
+KEEP
+EXTEND
+ADD
+FIX
+
+Provide a concise implementation plan.
+
+Do not create duplicate abstractions if equivalent interfaces already exist.
+
+The Travel Decision Engine should remain provider-agnostic.
+
+Core business logic should NOT directly depend on Ignav-specific response shapes.
+
+============================================================
+2. IMPLEMENT IGNAV FLIGHT PROVIDER
+============================================================
+
+Implement a concrete flight provider such as:
+
+IgnavFlightProvider
+
+behind the existing FlightProvider abstraction.
+
+The provider should accept normalized search inputs such as:
+
+origin
+destination
+departure_date
+return_date when applicable
+traveler_count
+cabin_class where supported
+currency
+market/locale where necessary
+
+Use:
+
+USD
+
+for Roamwise's current MVP.
+
+Normalize the provider's response into Roamwise-owned types.
+
+Example conceptual model:
+
+FlightSearchResult {
+    source
+    source_type
+    searched_at
+    origin
+    destination
+    offers[]
+}
+
+FlightOffer {
+    provider_offer_id
+    total_price_usd
+    outbound
+    inbound
+    carriers
+    stop_count
+    total_duration
+    booking_or_deeplink_if_legitimately_provided
+    source
+    retrieved_at
+}
+
+FlightSegment {
+    origin_airport
+    destination_airport
+    departure_datetime
+    arrival_datetime
+    airline
+    flight_number_if_available
+    duration
+}
+
+Use the actual fields supported by Ignav.
+
+Do not fabricate missing fields.
+
+============================================================
+3. LIVE FLIGHT DATA MUST NOT BECOME "CHEAPEST FLIGHT WINS"
+============================================================
+
+Roamwise is not a flight-search engine.
+
+The Travel Decision Engine should evaluate flight options using multiple factors.
+
+Possible decision dimensions:
+
+- price
+- total duration
+- number of stops
+- departure timing
+- arrival timing
+- overnight travel
+- connection burden
+- impact on usable vacation time
+- route convenience
+
+Example:
+
+Flight A
+$470
+2 stops
+18 hours
+
+Flight B
+$545
+nonstop
+9 hours
+
+Roamwise should NOT automatically recommend Flight A simply because it is cheaper.
+
+It should be capable of reasoning:
+
+"The nonstop option costs approximately $75 more but preserves almost a full day of usable travel time and reduces connection fatigue."
+
+This is exactly the type of Experience Value decision Roamwise should make.
+
+Do the calculations deterministically where possible.
+
+Use AI primarily to explain the tradeoff.
+
+============================================================
+4. FLIGHT → ITINERARY INTEGRATION
+============================================================
+
+Do not merely show flights in a disconnected panel.
+
+Flight information should influence planning when appropriate.
+
+For example:
+
+If the selected flight arrives at 8:30 PM:
+
+Day 1 should NOT contain a full sightseeing schedule.
+
+If the return flight departs at 7:00 AM:
+
+the final day should reflect the early departure.
+
+If a significantly better airport improves routing:
+
+Roamwise may explain the alternative.
+
+However:
+
+Do not silently change the user's airport/city without explanation.
+
+============================================================
+5. LIVE FLIGHT SEARCH SHOULD NOT BLOCK TRIP GENERATION
+============================================================
+
+Provider failure must NOT destroy the existing product.
+
+Desired flow:
+
+Attempt Ignav flight search.
+
+If successful:
+use normalized live results.
+
+If:
+- no API key
+- provider unavailable
+- timeout
+- rate limit
+- invalid provider response
+- no useful results
+
+then:
+
+continue generating the trip using the existing estimated/fallback system.
+
+Clearly label:
+
+Flight estimate
+
+instead of:
+
+Live flight price
+
+Do NOT show raw provider errors.
+
+============================================================
+6. SOURCE LABELING — REQUIRED
+============================================================
+
+Introduce a consistent source metadata model.
+
+Every externally-derived or estimated item should know where it came from.
+
+Examples:
+
+LIVE
+ESTIMATED
+ROAMWISE RECOMMENDED
+FALLBACK
+
+Conceptually:
+
+DataSourceMetadata {
+    provider
+    data_type
+    retrieved_at
+    freshness
+    is_live
+}
+
+Examples:
+
+Flight:
+provider = "Ignav"
+is_live = true
+retrieved_at = timestamp
+
+POI:
+provider = "Geoapify"
+is_live = true
+
+Budget food estimate:
+provider = "Roamwise"
+is_live = false
+freshness = "estimated"
+
+Do not scatter source-label strings manually throughout the UI.
+
+Create a reusable source/freshness model.
+
+============================================================
+7. UI SOURCE LABELS
+============================================================
+
+The user should immediately understand the difference between:
+
+LIVE DATA
+
+ESTIMATE
+
+ROAMWISE RECOMMENDATION
+
+Examples:
+
+$487
+Live flight data
+
+$145/night
+Estimated accommodation cost
+
+Experience Match: 94%
+Roamwise Recommended
+
+Use small, tasteful indicators that fit the existing Roamwise design.
+
+Do NOT clutter the interface.
+
+Preserve the premium/minimal visual identity.
+
+============================================================
+8. FLIGHT SEARCH RESULTS
+============================================================
+
+Do not overwhelm users with dozens of flight options.
+
+Normalize, score, and surface a concise shortlist.
+
+For example:
+
+ROAMWISE RECOMMENDED
+
+BEST VALUE
+
+LOWEST PRICE
+
+FASTEST
+
+Only use labels that can actually be supported by the returned results.
+
+For each surfaced flight show useful information such as:
+
+- price
+- route
+- departure time
+- arrival time
+- duration
+- stops
+- airline where available
+- source freshness
+
+Roamwise should explain WHY the recommended flight best fits the trip.
+
+============================================================
+9. NEVER FABRICATE FLIGHT INFORMATION
+============================================================
+
+If Ignav does not provide a value:
+
+do not invent it.
+
+Never fabricate:
+
+airline
+flight number
+fare
+availability
+departure time
+arrival time
+stop count
+duration
+booking link
+
+If a field is unavailable:
+omit it or display an appropriate unavailable state.
+
+============================================================
+10. GEOAPIFY PLACES INTEGRATION
+============================================================
+
+Inspect the existing Geoapify implementation.
+
+If it is already functioning correctly, preserve it.
+
+Improve its use inside the itinerary where useful.
+
+Desired flow:
+
+Roamwise selects destination
+↓
+Geoapify retrieves real POIs
+↓
+POIs normalized
+↓
+Travel Decision Engine scores against traveler profile
+↓
+Best-fit places considered
+↓
+selected places inserted into itinerary
+↓
+AI explains why they fit
+
+POIs should not be chosen simply because they rank highly in a generic search.
+
+Evaluate them against:
+
+- traveler interests
+- uniqueness
+- category
+- route convenience
+- available time
+- day pacing
+
+============================================================
+11. PLACE DATA QUALITY
+============================================================
+
+Avoid generating impossible combinations such as:
+
+morning activity in one side of the region
+afternoon activity several hours away
+evening activity back at the original location
+
+Use coordinates where available to improve geographic coherence.
+
+Do not over-engineer full route optimization yet.
+
+But prevent obviously unrealistic geographic schedules.
+
+============================================================
+12. WEATHER PROVIDER
+============================================================
+
+Implement:
+
+OpenMeteoWeatherProvider
+
+behind WeatherProvider or equivalent.
+
+Use destination coordinates.
+
+If the travel dates fall within the valid forecast window:
+
+retrieve weather forecast data.
+
+Normalize to Roamwise-owned fields such as:
+
+WeatherSummary {
+    location
+    date
+    min_temperature
+    max_temperature
+    precipitation_probability
+    weather_description_or_code_interpretation
+    source
+    retrieved_at
+}
+
+Use actual supported fields.
+
+Do not fabricate weather descriptions.
+
+============================================================
+13. WEATHER SHOULD IMPROVE THE PLAN
+============================================================
+
+Weather should influence the itinerary where sensible.
+
+Example:
+
+If rain probability is high on a day originally containing:
+
+mountain viewpoint
+long outdoor hike
+
+and another day has significantly better conditions:
+
+Roamwise may recommend swapping activities.
+
+The recommendation should explain:
+
+"Moving the outdoor activity to Tuesday provides better expected conditions while keeping the route unchanged."
+
+Do not repeatedly regenerate the entire trip because of weather.
+
+Modify affected days only when appropriate.
+
+============================================================
+14. FUTURE-DATE WEATHER SAFETY
+============================================================
+
+If a trip is too far in the future for a genuine forecast:
+
+DO NOT produce pretend daily weather.
+
+Display something like:
+
+"Weather forecast will become available closer to your trip."
+
+If historical climate information is eventually used, label it explicitly:
+
+Historical climate context
+
+NOT:
+
+Forecast
+
+============================================================
+15. BUDGET ENGINE WITH LIVE FLIGHTS
+============================================================
+
+The existing budget engine is deterministic and must remain so.
+
+When live flight results are available:
+
+use the selected/recommended flight price in the budget.
+
+Example:
+
+total_budget
+live_flight_cost
+estimated_accommodation
+estimated_transport
+estimated_food
+estimated_activities
+total_estimated_trip_cost
+remaining_budget
+
+Track which values are live and which are estimates.
+
+Example:
+
+Flights
+$487
+LIVE
+
+Accommodation
+$900
+ESTIMATED
+
+Food
+$420
+ESTIMATED
+
+Do not pretend that the entire budget is live merely because one category is live.
+
+============================================================
+16. BUDGET RECOMMENDATIONS SHOULD USE REAL TRADEOFFS
+============================================================
+
+If flight pricing meaningfully impacts the user's budget, Roamwise should explain it.
+
+Example:
+
+"Choosing the nonstop flight adds $82 but saves approximately 7 hours of travel time."
+
+or:
+
+"The cheaper departure saves approximately $160 and only adds one hour of travel time, making it the better value for this budget."
+
+Only provide exact numbers when supported by actual returned data.
+
+============================================================
+17. CACHING
+============================================================
+
+Do not make unnecessary provider calls.
+
+Implement reasonable server-side caching.
+
+Flights:
+cache identical searches for a short, sensible period.
+
+Places:
+cache destination POI queries for longer because they change less frequently.
+
+Weather:
+cache according to appropriate forecast freshness.
+
+The cache architecture may be:
+
+in-memory for MVP
+
+or existing database/cache infrastructure if already available.
+
+Do not add Redis solely for this milestone unless the project already uses it.
+
+Cache keys should be deterministic.
+
+Example:
+
+provider
+origin
+destination
+dates
+travelers
+currency
+search parameters
+
+============================================================
+18. RATE LIMIT PROTECTION
+============================================================
+
+Ignav has a limited request allowance.
+
+Do NOT call the flight API:
+
+- on every frontend render
+- on every tab switch
+- repeatedly during the same generation
+- after unrelated day edits
+- for every destination when only international arrival/departure flights matter
+
+Call external APIs intentionally.
+
+Reuse normalized data during the planning lifecycle.
+
+============================================================
+19. MODIFICATION ENGINE + LIVE DATA
+============================================================
+
+Preserve the existing refinement/versioning system.
+
+Do not automatically repeat every provider request for every modification.
+
+Examples:
+
+"Make Day 5 less busy."
+
+Should NOT trigger another international flight search.
+
+"Remove Milan."
+
+MAY require:
+- route recalculation
+- affected local transportation updates
+
+but not necessarily international flight search.
+
+"Change my departure date to September 16."
+
+SHOULD trigger a relevant flight re-search.
+
+Determine dependencies intelligently.
+
+============================================================
+20. DATA FRESHNESS
+============================================================
+
+Store timestamps for live provider results.
+
+The app should know:
+
+when flight information was retrieved.
+
+If a saved itinerary is loaded significantly later:
+
+do not silently present old pricing as current.
+
+Use language such as:
+
+"Flight price last checked 3 hours ago."
+
+And when appropriate provide a way to refresh live data.
+
+Do not auto-refresh aggressively.
+
+============================================================
+21. REFRESH LIVE DATA
+============================================================
+
+Add a lightweight way to refresh live information if appropriate.
+
+For example:
+
+Refresh flight prices
+
+Do not make the entire trip regenerate.
+
+Refresh provider information, then recalculate:
+
+- selected/recommended flight
+- affected budget numbers
+- relevant Trip Health components if appropriate
+
+Preserve itinerary content unless new data materially changes a recommendation.
+
+============================================================
+22. TRIP HEALTH SCORE + LIVE DATA
+============================================================
+
+Do not replace the existing Trip Health Score.
+
+Live data may improve some dimensions.
+
+Examples:
+
+Budget Efficiency:
+may become more accurate with live airfare.
+
+Transportation Efficiency:
+may account for actual flight durations/stops.
+
+Experience Fit:
+should NOT suddenly change simply because an API returned a flight.
+
+Keep score dimensions conceptually separated.
+
+Explain score changes.
+
+============================================================
+23. HOTEL PROVIDER — DO NOT IMPLEMENT LIVE HOTEL SEARCH YET
+============================================================
+
+There is currently no hotel provider selected for this milestone.
+
+DO NOT randomly choose one.
+
+Keep:
+
+HotelProvider
+
+or equivalent abstraction ready.
+
+Accommodation values should remain:
+
+ESTIMATED
+
+unless they genuinely come from an existing live provider.
+
+Do not label them Live.
+
+============================================================
+24. ACTIVITY/TICKET PROVIDER — DO NOT RANDOMLY ADD ONE
+============================================================
+
+Geoapify can provide place information.
+
+That does NOT mean ticket pricing or activity availability is live.
+
+Do not fabricate:
+
+ticket price
+tour availability
+reservation availability
+
+Keep ActivityProvider architecture ready for the next provider.
+
+============================================================
+25. TRANSPORT PROVIDER
+============================================================
+
+Use Geoapify routing only where appropriate and supported.
+
+Do not imply Geoapify provides:
+
+real-time train schedules
+real-time train fares
+real-time transit availability
+
+unless its current API legitimately provides the particular information being displayed.
+
+If transportation values are calculated/estimated:
+
+label them Estimated.
+
+============================================================
+26. ERROR HANDLING
+============================================================
+
+Provider integrations must fail gracefully.
+
+Never expose:
+
+API keys
+authorization headers
+provider response dumps
+stack traces
+internal URLs
+raw JSON errors
+
+Friendly examples:
+
+Flights unavailable:
+
+"Live flight information is temporarily unavailable. Roamwise is using estimated flight costs for this plan."
+
+Weather unavailable:
+
+"Weather information couldn't be loaded right now. Your itinerary is still available."
+
+Places unavailable:
+
+"Live place recommendations are temporarily unavailable. Roamwise used destination knowledge instead."
+
+============================================================
+27. SERVER-SIDE SECURITY
+============================================================
+
+IGNAV_API_KEY must only be accessed server-side.
+
+Check:
+
+- frontend bundles
+- logs
+- API responses
+- generated source maps if relevant
+
+Ensure the secret cannot appear in any client-side artifact.
+
+Do the same for other configured API secrets.
+
+============================================================
+28. VALIDATION
+============================================================
+
+Never trust provider responses blindly.
+
+Validate:
+
+numbers are finite
+prices are non-negative
+dates are valid
+timestamps are valid
+coordinates are valid
+required identifiers exist where needed
+
+Normalize before sending provider data into planning logic.
+
+============================================================
+29. DATABASE / PERSISTENCE
+============================================================
+
+Do not perform a major schema rewrite.
+
+Add only what is necessary.
+
+Where useful persist:
+
+provider
+retrieved_at
+search parameters
+normalized result
+selected offer
+source/freshness metadata
+
+Do not store secrets.
+
+Do not store giant raw provider responses unnecessarily.
+
+Prefer normalized data.
+
+============================================================
+30. OBSERVABILITY
+============================================================
+
+Add safe diagnostic logging.
+
+Useful information:
+
+provider
+request type
+success/failure
+latency
+cache hit/miss
+result count
+
+Never log:
+
+API keys
+authorization tokens
+sensitive headers
+
+============================================================
+31. OPENAI RESPONSIBILITY
+============================================================
+
+OpenAI may:
+
+- compare travel options
+- explain tradeoffs
+- personalize recommendations
+- interpret user refinement requests
+- produce traveler-facing explanations
+
+OpenAI should NOT:
+
+- invent flight prices
+- calculate final budget totals
+- calculate dates
+- pretend estimates are live
+- manufacture weather forecasts
+- fabricate provider results
+
+============================================================
+32. DETERMINISTIC RESPONSIBILITY
+============================================================
+
+Application code should own:
+
+- date calculations
+- budget arithmetic
+- source tracking
+- API provider calls
+- price normalization
+- scoring calculations where possible
+- cache behavior
+- schema validation
+- data freshness
+- itinerary version preservation
+
+============================================================
+33. UI: LIVE TRAVEL DATA
+============================================================
+
+Integrate live data into the existing dashboard cleanly.
+
+Do NOT redesign the dashboard.
+
+Potentially add/extend:
+
+FLIGHTS
+
+Recommended flight
+Price
+Duration
+Stops
+Departure
+Arrival
+Reason recommended
+Live-data badge
+Last checked timestamp
+
+WEATHER
+
+small contextual information attached to destination/day where useful
+
+PLACES
+
+continue surfacing real places within daily itinerary
+
+Avoid creating a cluttered Expedia-style interface.
+
+Roamwise remains a travel decision product, not a search-results marketplace.
+
+============================================================
+34. TEST A — LIVE FLIGHT SEARCH
+============================================================
+
+Run an actual configured Ignav search through the application/provider layer.
+
+Example:
+
+Origin:
+JFK / New York
+
+Destination:
+Rome / relevant Rome airport search
+
+Use a future date supported by the provider.
+
+Verify:
+
+- IGNAV_API_KEY is read from environment
+- request succeeds
+- response validates
+- normalized offers returned
+- USD prices
+- flight durations
+- stops
+- provider metadata
+- retrieved timestamp
+- no secret exposure
+
+Do not hardcode the returned result into tests.
+
+============================================================
+35. TEST B — ITALY + SWITZERLAND FULL FLOW
+============================================================
+
+Use the existing verified scenario:
+
+Origin:
+New York
+
+Destination:
+Italy and Switzerland
+
+Budget:
+$4,000
+
+Interests:
+nature
+photography
+food
+
+Travel style:
+balanced
+
+Preferences:
+scenic transportation
+local experiences
+
+Verify:
+
+- existing analysis still works
+- destination strategy remains logical
+- live flight search occurs
+- flight result influences budget
+- itinerary remains complete
+- destination scoring remains intact
+- flight data source labeled Live
+- non-live costs remain Estimated
+- no NaN
+- no undefined
+- no euro symbols
+- score remains explainable
+
+============================================================
+36. TEST C — PROVIDER FAILURE
+============================================================
+
+Temporarily simulate Ignav provider failure without exposing/removing the real secret.
+
+Verify:
+
+- trip generation still succeeds
+- estimated flight fallback activates
+- UI labels flight value Estimated
+- no raw provider error appears
+- existing itinerary behavior remains intact
+
+============================================================
+37. TEST D — CACHE
+============================================================
+
+Run the same flight search twice.
+
+Verify:
+
+FIRST:
+provider call
+
+SECOND:
+cache hit where appropriate
+
+Ensure identical frontend behavior.
+
+============================================================
+38. TEST E — WEATHER
+============================================================
+
+Test a destination/date inside the legitimate forecast window.
+
+Verify:
+
+- Open-Meteo response
+- coordinates correct
+- dates aligned
+- normalized weather output
+- live forecast label
+
+Then test a trip far outside the forecast window.
+
+Verify:
+
+Roamwise DOES NOT fabricate a forecast.
+
+============================================================
+39. TEST F — PLACES
+============================================================
+
+With Geoapify configured:
+
+Generate a destination itinerary.
+
+Verify:
+
+- provider returns real POIs
+- selected places are relevant to traveler interests
+- coordinate/location data is coherent
+- provider metadata retained
+
+Then test without the provider.
+
+Verify fallback generation still succeeds.
+
+============================================================
+40. TEST G — REFINEMENT DOES NOT WASTE API CALLS
+============================================================
+
+Generate an Italy + Switzerland trip.
+
+Then request:
+
+"Make Day 5 less busy."
+
+Verify:
+
+- Day 5 changes
+- unrelated days preserved
+- international flight search is NOT repeated unnecessarily
+
+Then modify:
+
+"Change my trip dates."
+
+Verify:
+
+- relevant flight search is refreshed
+- budget updates
+- new version persists
+
+============================================================
+41. REGRESSION TEST EVERYTHING FROM PREVIOUS MILESTONE
+============================================================
+
+Before completion verify:
+
+- landing page
+- questionnaire
+- flexible dates
+- date pickers
+- Travel Decision Analysis
+- recommendations
+- alternative strategies
+- destination scoring
+- country → bases
+- Generate My Trip
+- full daily itinerary
+- destination breakdown
+- practical notes
+- USD budget
+- Trip Health Score
+- refinement
+- score delta
+- version persistence
+- OpenAI-disabled fallback
+- Geoapify-disabled fallback
+
+No previously verified functionality may be sacrificed for the live-data integration.
+
+============================================================
+42. DO NOT BUILD THESE
+============================================================
+
+Do NOT build:
+
+- flight booking checkout
+- airline ticket purchasing
+- hotel booking
+- hotel marketplace
+- payments
+- affiliate program
+- social network
+- full authentication redesign
+- mobile app
+- travel-agent dashboard
+- giant admin system
+- unrelated visual redesign
+
+The purpose is:
+
+CONNECT REAL DATA TO THE EXISTING TRAVEL DECISION ENGINE.
+
+============================================================
+FINAL USER EXPERIENCE
+============================================================
+
+The product should move toward an experience like:
+
+ROAMWISE RECOMMENDS
+
+JFK → Rome
+Nonstop
+9h 05m
+$522
+
+LIVE FLIGHT DATA
+Checked recently
+
+Why Roamwise recommends it:
+
+"This flight costs $64 more than the cheapest option but saves approximately six hours and removes a connection, giving you more usable time on the first day of your trip."
+
+Then:
+
+Accommodation
+$145/night
+ESTIMATED
+
+Lake Como
+Experience Match 92%
+ROAMWISE RECOMMENDED
+
+Matterhorn viewpoint
+REAL PLACE
+
+Weather
+18–24°C
+LIVE FORECAST
+when legitimately within the forecast window
+
+The user should always understand:
+
+What is factual live data?
+What is estimated?
+What is Roamwise's recommendation?
+Why did Roamwise make the recommendation?
+
+============================================================
+FINAL ACCEPTANCE CRITERIA
+============================================================
+
+This milestone succeeds if:
+
+1. Roamwise retrieves genuine flight-search data through Ignav when configured.
+
+2. Ignav is isolated behind the existing FlightProvider architecture.
+
+3. The API key never reaches the frontend.
+
+4. Live flight data affects the budget and relevant recommendations.
+
+5. Roamwise evaluates flights using Experience Value rather than cheapest-only logic.
+
+6. Geoapify remains functional and continues providing real place information where configured.
+
+7. Open-Meteo provides real forecasts only when legitimate forecasts are available.
+
+8. Future trips never receive fake forecasts.
+
+9. Every user-visible value clearly distinguishes Live vs Estimated vs Roamwise Recommended.
+
+10. Provider outages never prevent trip generation.
+
+11. Unnecessary provider calls are prevented through caching/dependency-aware updates.
+
+12. Existing trip refinement/versioning remains intact.
+
+13. Existing Travel Decision Engine behavior remains intact.
+
+14. Existing date functionality remains intact.
+
+15. Existing complete day-by-day itinerary behavior remains intact.
+
+16. No NaN / undefined / euro / invalid values are introduced.
+
+17. The application still feels like Roamwise, not Expedia.
+
+============================================================
+WHEN FINISHED
+============================================================
+
+Do NOT simply say:
+
+"Live data has been added."
+
+Provide a completion report containing:
+
+1. Existing functionality preserved
+
+2. Provider architecture found before changes
+
+3. Provider architecture after changes
+
+4. Ignav integration details
+
+5. Exact Ignav capabilities actually used
+
+6. Geoapify behavior
+
+7. Open-Meteo behavior
+
+8. Live-data fields
+
+9. Estimated-data fields
+
+10. Source/freshness architecture
+
+11. Caching behavior
+
+12. API-call minimization behavior
+
+13. Budget integration
+
+14. Trip Health integration
+
+15. Refinement behavior
+
+16. Provider-failure behavior
+
+17. Security verification
+
+18. Files created
+
+19. Files significantly modified
+
+20. Database changes
+
+21. Test A results
+
+22. Test B results
+
+23. Test C results
+
+24. Test D results
+
+25. Test E results
+
+26. Test F results
+
+27. Test G results
+
+28. Full regression results
+
+29. Known provider/data limitations
+
+30. Remaining estimates
+
+31. Recommended NEXT provider/milestone
+
+IMPORTANT:
+
+Do not start the next milestone.
+
+Stop after verification and report the results.

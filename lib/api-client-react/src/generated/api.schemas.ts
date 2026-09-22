@@ -99,6 +99,36 @@ export interface DailyTransportation {
   duration: string;
 }
 
+export type DataSourceMetadataLabel = typeof DataSourceMetadataLabel[keyof typeof DataSourceMetadataLabel];
+
+
+export const DataSourceMetadataLabel = {
+  LIVE: 'LIVE',
+  ESTIMATED: 'ESTIMATED',
+  ROAMWISE_RECOMMENDED: 'ROAMWISE RECOMMENDED',
+  FALLBACK: 'FALLBACK',
+} as const;
+
+export interface DataSourceMetadata {
+  provider: string;
+  data_type: string;
+  retrieved_at: string | null;
+  freshness: string;
+  is_live: boolean;
+  label: DataSourceMetadataLabel;
+}
+
+export interface WeatherSummary {
+  location: string;
+  date: string;
+  min_temperature_c: number;
+  max_temperature_c: number;
+  precipitation_probability: number | null;
+  weather_code: number;
+  description: string;
+  source_metadata: DataSourceMetadata;
+}
+
 export interface DailyItinerary {
   day: number;
   date: string;
@@ -110,12 +140,14 @@ export interface DailyItinerary {
   transportation: DailyTransportation;
   /** @minimum 0 */
   estimated_daily_cost_usd: number;
+  weather?: WeatherSummary;
 }
 
 export interface BudgetItem {
   category: string;
   estimated_amount: number;
   description: string;
+  source_metadata?: DataSourceMetadata;
 }
 
 export type BudgetSummaryCurrency = typeof BudgetSummaryCurrency[keyof typeof BudgetSummaryCurrency];
@@ -132,6 +164,8 @@ export interface BudgetSummary {
   /** @minimum 0 */
   flights_estimated: number;
   /** @minimum 0 */
+  flights_live?: number;
+  /** @minimum 0 */
   accommodation_estimated: number;
   /** @minimum 0 */
   transportation_estimated: number;
@@ -142,6 +176,68 @@ export interface BudgetSummary {
   total_estimated: number;
   remaining_budget: number;
   estimates_only: boolean;
+}
+
+export interface FlightSegment {
+  origin_airport: string;
+  destination_airport: string;
+  departure_datetime: string | null;
+  arrival_datetime: string | null;
+  airline?: string;
+  flight_number?: string;
+  /** @minimum 0 */
+  duration_minutes?: number;
+}
+
+export interface FlightLeg {
+  carrier?: string;
+  /** @minimum 0 */
+  duration_minutes?: number;
+  segments: FlightSegment[];
+}
+
+export interface FlightOffer {
+  provider_offer_id: string;
+  /** @minimum 0 */
+  total_price_usd: number;
+  outbound: FlightLeg;
+  inbound: FlightLeg;
+  carriers: string[];
+  /** @minimum 0 */
+  stop_count: number;
+  total_duration_minutes: number | null;
+  departure_datetime: string | null;
+  arrival_datetime: string | null;
+  booking_id?: string;
+  source_metadata: DataSourceMetadata;
+}
+
+export type FlightSearchStatus = typeof FlightSearchStatus[keyof typeof FlightSearchStatus];
+
+
+export const FlightSearchStatus = {
+  live: 'live',
+  unavailable: 'unavailable',
+} as const;
+
+export interface FlightSearch {
+  status: FlightSearchStatus;
+  origin: string;
+  destination: string;
+  departure_date: string;
+  return_date: string;
+  offers: FlightOffer[];
+  selected_offer: FlightOffer | null;
+  source_metadata: DataSourceMetadata;
+  recommendation_reason?: string;
+  message?: string;
+}
+
+export interface LiveDataBundle {
+  flight_search: FlightSearch;
+  weather: WeatherSummary[];
+  refreshed_at: string;
+  planning_note?: string;
 }
 
 export interface TradeoffItem {
@@ -248,6 +344,7 @@ export interface Itinerary {
   daily_schedule: DailySchedule[];
   budget_breakdown: BudgetItem[];
   budget_summary: BudgetSummary;
+  live_data?: LiveDataBundle;
   reasoning: string;
   tradeoffs: TradeoffItem[];
   health_score: TripHealthScore | null;
