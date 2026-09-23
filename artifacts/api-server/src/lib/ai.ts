@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { logger } from "./logger";
 import {
   lookupDestination,
@@ -23,21 +22,6 @@ import { collectPlaceContext } from "./places";
 import type { FlightSearchResult } from "./flights";
 import type { WeatherSummary } from "./weather";
 import { estimatedSource, type DataSourceMetadata } from "./sources";
-
-// Client is lazy — only constructed if the env var is present
-let _client: OpenAI | null = null;
-
-function getClient(): OpenAI | null {
-  if (!process.env.OPENAI_API_KEY) return null;
-  if (!_client) {
-    _client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return _client;
-}
-
-export function hasAI(): boolean {
-  return !!process.env.OPENAI_API_KEY;
-}
 
 // ---------------------------------------------------------------------------
 // Types mirroring the OpenAPI contract
@@ -589,89 +573,6 @@ export function normalizeItinerary(
 // ---------------------------------------------------------------------------
 
 export async function analyzeTrip(trip: TripData): Promise<TripAnalysis> {
-  const client = getClient();
-  const catalogContext = buildAnalyzeDestinationContext(trip);
-
-  if (client) {
-    const systemPrompt = `You are Kalyra, an expert travel advisor backed by a structured destination scoring engine.
-Analyze the traveler's trip using the provided catalog data. Be honest and specific.
-Challenge assumptions when a destination does not match the traveler's stated interests.
-Return structured JSON only.`;
-
-    const userPrompt = `Analyze this trip request:
-Destination: ${trip.destination}
-From: ${trip.starting_location}
-Dates: ${trip.start_date} to ${trip.end_date}
-Travelers: ${trip.traveler_count}
-Budget: $${trip.budget} (preference: ${trip.budget_preference})
-Interests: ${trip.traveler_profile.interests.join(", ")}
-Travel style: ${trip.traveler_profile.travel_style}
-Preferences: ${trip.traveler_profile.preferences.join(", ")}
-
-${catalogContext}
-
-Return JSON matching this exact schema:
-{
-  "trip_strategy": "2-3 sentence strategic recommendation for this traveler",
-  "destinations": [
-    {
-      "name": "destination name",
-      "score": 85,
-      "reasoning": "why this fits — reference specific catalog attributes like nature, food, culture scores",
-      "drawbacks": "honest assessment with reference to catalog data (crowd level, budget mismatch, etc.)",
-      "recommended_nights": 3,
-      "why_selected": "why this base is worth the traveler's time",
-      "experience_highlights": ["specific experience", "specific experience"],
-      "estimated_cost_usd": 450
-    }
-  ],
-  "reasoning": "overall reasoning for the strategy, referencing attribute tradeoffs",
-  "recommendations": [
-    {
-      "recommendation": "specific action to consider",
-      "reason": "opportunity-cost explanation",
-      "expected_benefit": "what improves",
-      "tradeoff": "what the traveler gives up"
-    }
-  ],
-  "strategies": [
-    {
-      "name": "short strategy name",
-      "best_for": ["interest"],
-      "changes": "what changes",
-      "gains": "what the traveler gains",
-      "sacrifices": "what the traveler sacrifices",
-      "estimated_budget_impact_usd": 0,
-      "pacing_impact": "how the pace changes",
-      "experience_match_impact": "how experience match changes",
-      "recommended": true
-    }
-  ]
-}
-
- Include 3-5 destinations within or adjacent to the requested area. Score each 0-100 based on match with this specific traveler's interests. Reference catalog attribute scores directly in your explanations. Include 2-3 meaningful decision strategies when the trip has more than one sensible shape, and 2-3 recommendations with a reason, expected benefit, and tradeoff.`;
-
-    try {
-      const response = await client.chat.completions.create({
-        model: "gpt-4o-mini",
-        max_tokens: 2000,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      });
-
-      const content = response.choices[0]?.message?.content;
-      if (content) {
-        return normalizeTripAnalysis(JSON.parse(content), trip);
-      }
-    } catch (err) {
-      logger.error({ err }, "OpenAI analyze call failed, using fallback");
-    }
-  }
-
-  // Deterministic fallback based on actual trip data
   return buildFallbackAnalysis(trip);
 }
 
@@ -680,141 +581,16 @@ Return JSON matching this exact schema:
 // ---------------------------------------------------------------------------
 
 export async function generateItinerary(trip: TripData): Promise<ItineraryData> {
-  const client = getClient();
-  const { total_days: totalDays, total_nights: totalNights } = parseTripDuration(
+  const { total_days: totalDays } = parseTripDuration(
     trip.start_date,
     trip.end_date
   );
-  const candidates = selectRouteCandidates(trip).candidates;
 
-  // Build a placeholder itinerary to generate scoring context
-  // Broad country inputs are expanded into usable bases before the AI sees them.
-  const placeholderRoute: RouteStop[] = candidates.map((candidate, i) => ({
-    location: candidate.name,
-    destination: candidate.name,
-    country: candidate.country,
-    nights: Math.max(1, Math.floor(totalNights / candidates.length)),
-    transport_to_next: i < candidates.length - 1 ? "train or bus" : null,
-    duration_hours: i < candidates.length - 1 ? 2.5 : null,
-  }));
-
-  // Build catalog context for these destinations
-  const catalogLines: string[] = ["Destination catalog data (from scoring engine):"];
-  for (const dest of candidates.map((candidate) => candidate.name)) {
-    const attrs = lookupDestination(dest);
-    if (attrs) {
-      catalogLines.push(`  • ${destinationSummary(dest, attrs)}`);
-    }
-  }
-
-  const [catalogContext, placesContext] = await Promise.all([
-    Promise.resolve(catalogLines.join("\n")),
-    collectPlaceContext(
-      candidates.map((candidate) => candidate.name),
-      trip.traveler_profile.interests
-    ),
-  ]);
-
-  if (client) {
-    const systemPrompt = `You are Kalyra, an expert travel advisor backed by a structured scoring engine.
-Create a detailed, personalized itinerary using the provided catalog attribute data.
-Every recommendation should be grounded in the scoring data and specific to this traveler's interests.
-Return structured JSON only.`;
-
-    const userPrompt = `Create a detailed itinerary for this trip:
-Destination: ${trip.destination}
-From: ${trip.starting_location}
-Dates: ${trip.start_date} to ${trip.end_date} (${totalDays} days / ${totalNights} nights)
-Travelers: ${trip.traveler_count}
-Budget: $${trip.budget} total (preference: ${trip.budget_preference})
-Interests: ${trip.traveler_profile.interests.join(", ")}
-Travel style: ${trip.traveler_profile.travel_style}
-Preferences: ${trip.traveler_profile.preferences.join(", ")}
-
-${catalogContext}
-
-${placesContext}
-
-SCORING GUIDANCE:
-- Prioritize destinations with high scores for the traveler's top interests
-- Pacing: match nights at each stop to the catalog's ideal_stay_days range
-- Budget: avg_daily_cost_usd from catalog should inform accommodation and activity recommendations
-- In destination scores and reasoning, reference catalog attribute values directly
-- The route must use specific bases from this candidate list: ${candidates.map((candidate) => candidate.name).join(", ")}
-- Do not collapse the route into the broad country/region name.
-
-Return JSON matching this exact schema:
-{
-  "trip_strategy": "2-3 sentence summary referencing key catalog attributes that drove routing decisions",
-  "currency": "USD",
-  "total_days": ${totalDays},
-  "total_nights": ${totalNights},
-  "route": [
-    {
-      "location": "City/Area name",
-      "nights": 2,
-      "transport_to_next": "train/flight/bus/drive or null if last stop",
-      "duration_hours": 1.5
-    }
-  ],
-  "destinations": [
-    {
-      "name": "destination name",
-      "score": 90,
-      "reasoning": "why selected — reference catalog scores (e.g. 'Photography 95/100, Nature 88/100')",
-      "drawbacks": "honest tradeoffs referencing catalog data (crowd level, cost, transport complexity)"
-    }
-  ],
-  "daily_itinerary": [
-    {
-      "day": 1,
-      "date": "${trip.start_date}",
-      "location": "City name",
-      "morning": { "activity": "specific activity", "description": "realistic details", "estimated_cost_usd": 30 },
-      "afternoon": { "activity": "specific activity", "description": "realistic details", "estimated_cost_usd": 40 },
-      "evening": { "activity": "specific activity", "description": "realistic details", "estimated_cost_usd": 35 },
-      "food_recommendations": ["specific local food option"],
-      "transportation": { "mode": "walk", "details": "realistic movement", "duration": "20 minutes" },
-      "estimated_daily_cost_usd": 105
-    }
-  ],
-  "budget_breakdown": [
-    { "category": "Flights", "estimated_amount": 800, "description": "Round trip from ${trip.starting_location}" },
-    { "category": "Accommodation", "estimated_amount": 600, "description": "Hotels for ${totalDays} nights" },
-    { "category": "Food", "estimated_amount": 400, "description": "Restaurants and local markets" },
-    { "category": "Activities", "estimated_amount": 300, "description": "Entrance fees and experiences" },
-    { "category": "Transport", "estimated_amount": 200, "description": "Local transport and transfers" }
-  ],
-  "budget_summary": { "currency": "USD", "total_budget": ${trip.budget} },
-  "reasoning": "Why this itinerary optimizes for this traveler — reference specific catalog scores and tradeoffs",
-  "tradeoffs": [
-    { "description": "tradeoff description with score impact", "impact": "positive or negative impact with score reference" }
-  ]
-}
-
-Create exactly ${totalDays} entries in daily_itinerary. The first and last days must account for arrival and departure. Transfer days must have lighter schedules. Personalize every activity to the traveler's interests (${trip.traveler_profile.interests.join(", ")}). All money is USD. Budget breakdown must sum close to $${trip.budget}; arithmetic will be recalculated by code.`;
-
-    try {
-      const response = await client.chat.completions.create({
-        model: "gpt-4o-mini",
-        max_tokens: 4000,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      });
-
-      const content = response.choices[0]?.message?.content;
-      if (content) {
-        return normalizeItinerary(JSON.parse(content) as Partial<ItineraryData>, trip, totalDays);
-      }
-    } catch (err) {
-      logger.error({ err }, "OpenAI generate call failed, using fallback");
-    }
-  }
-
-  return normalizeItinerary(buildFallbackItinerary(trip, totalDays), trip, totalDays);
+  return normalizeItinerary(
+    buildFallbackItinerary(trip, totalDays),
+    trip,
+    totalDays
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -826,76 +602,14 @@ export async function modifyItinerary(
   currentItinerary: ItineraryData,
   userRequest: string
 ): Promise<ModificationResult> {
-  const client = getClient();
-
-  // Compute current health score to inject into prompt
   const currentScore = computeTripHealthScore(currentItinerary, trip);
-  const scoringContext = buildScoringContext(currentItinerary, trip, currentScore);
 
-  if (client) {
-    const systemPrompt = `You are Kalyra, an expert travel advisor backed by a structured scoring engine.
-When modifying itineraries, reference the scoring data to explain tradeoffs with concrete numbers.
-Example: "Moving one night from Milan to Zermatt increases Experience Fit by ~8 points because Zermatt scores 99/100 on Nature vs Milan's 10/100, which better matches your photography interests."
-Return structured JSON only.`;
-
-    const userPrompt = `The traveler wants to modify their itinerary.
-
-Trip context:
-- Destination: ${trip.destination}
-- Budget: $${trip.budget} (preference: ${trip.budget_preference})
-- Interests: ${trip.traveler_profile.interests.join(", ")}
-- Travel style: ${trip.traveler_profile.travel_style}
-
-Current itinerary: ${currentItinerary.trip_strategy}
-
-Traveler request: "${userRequest}"
-
-${scoringContext}
-
-Return JSON matching this schema:
-{
-  "changes_made": [
-    { "description": "what specifically changed, with score impact where applicable", "type": "destination|budget|schedule|duration|activity|transport" }
-  ],
-  "reasoning": "2-4 sentences referencing catalog scores and score deltas. Use format: 'This increases [Dimension] by ~N points because [attribute data]...' Be specific about tradeoffs.",
-  "itinerary": { ...complete updated itinerary in the same format as the original... }
-}
-
-The itinerary field must be a complete updated itinerary with the same structure as:
-${JSON.stringify(currentItinerary).slice(0, 2000)}...
-
-Make targeted changes that genuinely address the request. Your reasoning MUST reference specific scores from the scoring data above.`;
-
-    try {
-      const response = await client.chat.completions.create({
-        model: "gpt-4o-mini",
-        max_tokens: 4500,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      });
-
-      const content = response.choices[0]?.message?.content;
-      if (content) {
-        const parsed = JSON.parse(content) as ModificationResult;
-        return {
-          changes_made: Array.isArray(parsed.changes_made) ? parsed.changes_made : [],
-          reasoning: String(parsed.reasoning ?? "Updated using the structured scoring engine."),
-          itinerary: normalizeItinerary(
-            (parsed.itinerary ?? currentItinerary) as Partial<ItineraryData>,
-            trip,
-            currentItinerary.total_days || daysBetween(trip.start_date, trip.end_date)
-          ),
-        };
-      }
-    } catch (err) {
-      logger.error({ err }, "OpenAI modify call failed, using fallback");
-    }
-  }
-
-  return buildFallbackModification(trip, currentItinerary, userRequest, currentScore);
+  return buildFallbackModification(
+    trip,
+    currentItinerary,
+    userRequest,
+    currentScore
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -190,7 +190,10 @@ function scoreCrowdFit(attrs: DestinationAttributes): number {
 }
 
 function scoreTransportFit(attrs: DestinationAttributes, trip: DecisionTrip): number {
-  const multiBaseFactor = trip.traveler_profile.travel_style ? 1 : 0.8;
+  const totalNights = parseTripDuration(trip.start_date, trip.end_date).total_nights;
+  const plannedBaseCount = baseCountForTrip(trip, totalNights);
+  const multiBaseFactor = plannedBaseCount > 1 ? 1 : 0.8;
+
   return clamp(100 - attrs.transport_complexity * 0.35 * multiBaseFactor);
 }
 
@@ -202,6 +205,13 @@ function dimensionLabel(dimension: DecisionDimension): string {
   return dimension.replace("_fit", "").replace("_", " ");
 }
 
+function dimensionContribution(
+  dimension: DecisionDimension,
+  score: DestinationDecisionScore
+): number {
+  return score[dimension] * SCORE_WEIGHTS[dimension];
+}
+
 function buildExplanation(
   name: string,
   score: DestinationDecisionScore,
@@ -210,7 +220,11 @@ function buildExplanation(
 ): string {
   const dimensions = (Object.keys(SCORE_WEIGHTS) as DecisionDimension[])
     .map((dimension) => [dimension, score[dimension]] as const)
-    .sort(([, left], [, right]) => right - left);
+    .sort(
+      ([leftDimension], [rightDimension]) =>
+        dimensionContribution(rightDimension, score) -
+        dimensionContribution(leftDimension, score)
+    );
   const strongest = dimensions.slice(0, 2).map(([dimension, value]) => `${dimensionLabel(dimension)} ${value}/100`);
   const weakest = dimensions.filter(([, value]) => value < 70).slice(-2).map(([dimension, value]) => `${dimensionLabel(dimension)} ${value}/100`);
   const interestText = profile.matched_interests.length > 0
@@ -276,7 +290,11 @@ export function scoreDestinationForTrip(name: string, trip: DecisionTrip): Desti
     avg_daily_cost_usd: attrs.avg_daily_cost_usd,
   };
   const sortedDimensions = (Object.keys(SCORE_WEIGHTS) as DecisionDimension[])
-    .sort((left, right) => score[right] - score[left]);
+    .sort(
+      (left, right) =>
+        dimensionContribution(right, score) -
+        dimensionContribution(left, score)
+    );
   score.strengths = sortedDimensions
     .filter((dimension) => score[dimension] >= 80)
     .slice(0, 3)

@@ -14,7 +14,6 @@ import {
   generateItinerary,
   modifyItinerary,
   normalizeItinerary,
-  hasAI,
   type TripData,
   type ItineraryData,
   type RouteStop,
@@ -196,7 +195,7 @@ router.post("/trips/:id/analyze", async (req, res): Promise<void> => {
     return;
   }
 
-  req.log.info({ tripId: trip.id, aiEnabled: hasAI() }, "Analyzing trip");
+  req.log.info({ tripId: trip.id }, "Analyzing trip");
   const analysis = await analyzeTrip(buildTripData(trip));
   res.json(analysis);
 });
@@ -215,7 +214,7 @@ router.post("/trips/:id/generate", async (req, res): Promise<void> => {
     return;
   }
 
-  req.log.info({ tripId: trip.id, aiEnabled: hasAI() }, "Generating itinerary");
+  req.log.info({ tripId: trip.id }, "Generating itinerary");
 
   const tripData = buildTripData(trip);
   const itineraryData = await enrichItineraryWithLiveData(
@@ -332,7 +331,7 @@ router.post("/trips/:id/modify", async (req, res): Promise<void> => {
     return;
   }
 
-  req.log.info({ tripId: trip.id, aiEnabled: hasAI() }, "Modifying itinerary");
+  req.log.info({ tripId: trip.id }, "Modifying itinerary");
 
   const tripData = buildTripData(trip);
 

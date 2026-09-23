@@ -83,3 +83,43 @@ test("unknown destinations stay limited-confidence instead of receiving fabricat
   assert.equal(result.overall_score, 50);
   assert.match(result.explanation, /limited-data/i);
 });
+
+test("transport complexity matters more on multi-base trips", () => {
+  const singleBase = trip({
+    start_date: "2026-09-01",
+    end_date: "2026-09-04",
+    traveler_profile: {
+      interests: ["Nature"],
+      travel_style: "Slow and unhurried",
+    },
+  });
+
+  const multiBase = trip({
+    start_date: "2026-09-01",
+    end_date: "2026-09-09",
+    traveler_profile: {
+      interests: ["Nature"],
+      travel_style: "Balanced",
+    },
+  });
+
+  const singleBaseScore = scoreDestinationForTrip("Zermatt", singleBase);
+  const multiBaseScore = scoreDestinationForTrip("Zermatt", multiBase);
+
+  assert.ok(singleBaseScore.transport_fit > multiBaseScore.transport_fit);
+});
+
+test("reported strengths prioritize weighted decision contribution", () => {
+  const traveler = trip({
+    destination: "Italy",
+    traveler_profile: {
+      interests: ["Nature", "Photography"],
+      travel_style: "Balanced",
+    },
+  });
+
+  const result = scoreDestinationForTrip("Lake Como", traveler);
+
+  assert.ok(result.strengths.length > 0);
+  assert.match(result.strengths[0], /interest/i);
+});
