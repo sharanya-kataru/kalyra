@@ -569,7 +569,7 @@ export async function analyzeTrip(trip: TripData): Promise<TripAnalysis> {
   const catalogContext = buildAnalyzeDestinationContext(trip);
 
   if (client) {
-    const systemPrompt = `You are Roamwise, an expert travel advisor backed by a structured destination scoring engine.
+    const systemPrompt = `You are Kalyra, an expert travel advisor backed by a structured destination scoring engine.
 Analyze the traveler's trip using the provided catalog data. Be honest and specific.
 Challenge assumptions when a destination does not match the traveler's stated interests.
 Return structured JSON only.`;
@@ -692,7 +692,7 @@ export async function generateItinerary(trip: TripData): Promise<ItineraryData> 
   ]);
 
   if (client) {
-    const systemPrompt = `You are Roamwise, an expert travel advisor backed by a structured scoring engine.
+    const systemPrompt = `You are Kalyra, an expert travel advisor backed by a structured scoring engine.
 Create a detailed, personalized itinerary using the provided catalog attribute data.
 Every recommendation should be grounded in the scoring data and specific to this traveler's interests.
 Return structured JSON only.`;
@@ -809,7 +809,7 @@ export async function modifyItinerary(
   const scoringContext = buildScoringContext(currentItinerary, trip, currentScore);
 
   if (client) {
-    const systemPrompt = `You are Roamwise, an expert travel advisor backed by a structured scoring engine.
+    const systemPrompt = `You are Kalyra, an expert travel advisor backed by a structured scoring engine.
 When modifying itineraries, reference the scoring data to explain tradeoffs with concrete numbers.
 Example: "Moving one night from Milan to Zermatt increases Experience Fit by ~8 points because Zermatt scores 99/100 on Nature vs Milan's 10/100, which better matches your photography interests."
 Return structured JSON only.`;

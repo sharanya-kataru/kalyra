@@ -3,7 +3,7 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: Roamwise Travel Experience Optimization API
+  description: Kalyra Travel Experience Optimization API
 servers:
   - url: /api
     description: Base API path
@@ -548,7 +548,7 @@ components:
           type: boolean
         label:
           type: string
-          enum: ["LIVE", "ESTIMATED", "ROAMWISE RECOMMENDED", "FALLBACK"]
+          enum: ["LIVE", "ESTIMATED", "KALYRA RECOMMENDED", "FALLBACK"]
       required:
         - provider
         - data_type

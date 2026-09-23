@@ -679,7 +679,7 @@ export default function Trip() {
                 </div>
               </div>
                <p className="mt-4 text-xs text-[#76827d]">
-                 Flight prices and forecasts are labeled by source. Accommodation, activities, and local transport remain Roamwise estimates.
+                 Flight prices and forecasts are labeled by source. Accommodation, activities, and local transport remain Kalyra estimates.
                </p>
             </div>
             <div className="mb-8">
@@ -902,7 +902,7 @@ function LiveTravelData({
           <p className="font-mono-custom text-[11px] uppercase tracking-[.18em] text-[#bb7a52]">Live travel data</p>
           <h2 className="mt-2 font-display text-4xl tracking-[-.04em]">Decisions with a little more signal.</h2>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[#65706d]">
-            Provider-backed values are kept separate from Roamwise recommendations and estimates.
+            Provider-backed values are kept separate from Kalyra recommendations and estimates.
           </p>
         </div>
         <button
@@ -944,7 +944,7 @@ function LiveTravelData({
                 </p>
               </div>
               <p className="mt-4 text-xs leading-5 text-[#65706d]">
-                {flight.recommendation_reason ?? 'Roamwise chose a balanced offer using price, stops, and total travel time rather than cheapest price alone.'}
+                {flight.recommendation_reason ?? 'Kalyra chose a balanced offer using price, stops, and total travel time rather than cheapest price alone.'}
               </p>
               {data.planning_note && (
                 <p className="mt-3 rounded-lg bg-[#f5f3ec] px-3 py-2 text-xs leading-5 text-[#65706d]">
@@ -960,7 +960,7 @@ function LiveTravelData({
                   <div className="mt-2 space-y-2">
                     {surfacedOffers.map((offer: any) => {
                       const label = offer.provider_offer_id === selected.provider_offer_id
-                        ? 'ROAMWISE RECOMMENDED'
+                        ? 'KALYRA RECOMMENDED'
                         : offer.provider_offer_id === lowestPriceId
                           ? 'LOWEST PRICE'
                           : offer.provider_offer_id === fastestId

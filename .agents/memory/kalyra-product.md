@@ -1,6 +1,6 @@
 ---
-name: Roamwise product direction
-description: Core product decisions and architecture for the Roamwise travel optimizer
+name: Kalyra product direction
+description: Core product decisions and architecture for the Kalyra travel optimizer
 ---
 
 ## Product principle
@@ -43,7 +43,7 @@ User declined Replit AI Integrations upgrade and did not provide OPENAI_API_KEY.
 **How to apply:** Derive duration from the persisted dates at normalization boundaries, and preserve rich day fields when modifying a trip.
 
 ## Live-data integration rule
-External travel facts must enter Roamwise through provider-specific adapters, become normalized source-labeled values, and remain optional enhancements over deterministic planning and fallback behavior.
+External travel facts must enter Kalyra through provider-specific adapters, become normalized source-labeled values, and remain optional enhancements over deterministic planning and fallback behavior.
 
 **Why:** Provider schemas, availability, and freshness vary; coupling them to itinerary logic would make outages or stale data destabilize the verified planning flow.
 

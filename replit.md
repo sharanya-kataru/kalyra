@@ -1,6 +1,6 @@
-# Roamwise Travel Optimizer
+# Kalyra Travel Optimizer
 
-Roamwise is a personalized travel decision-making platform that helps independent travelers optimize limited vacation time, money, and experiences.
+Kalyra is a personalized travel decision-making platform that helps independent travelers optimize limited vacation time, money, and experiences.
 
 ## Run & Operate
 
@@ -23,7 +23,7 @@ Roamwise is a personalized travel decision-making platform that helps independen
 ## Where things live
 
 - `artifacts/travel-optimizer/src/App.tsx` — interactive prototype flow and route-level UI
-- `artifacts/travel-optimizer/src/index.css` — Roamwise visual language and theme tokens
+- `artifacts/travel-optimizer/src/index.css` — Kalyra visual language and theme tokens
 - `artifacts/travel-optimizer/src/data/` — milestone-one mock trip data
 - `artifacts/api-server/src/routes/` — shared FastAPI-oriented API boundary placeholder (currently Express scaffold)
 - `lib/api-spec/openapi.yaml` — source of truth for future typed trip-generation endpoints
@@ -34,7 +34,7 @@ Roamwise is a personalized travel decision-making platform that helps independen
 - The first milestone is frontend-first with mock data so the core decision-making experience can be evaluated before external AI and persistence are introduced.
 - The product flow is intentionally split into questionnaire, analysis, and generated trip dashboard states so recommendation reasoning is visible before the itinerary is accepted.
 - The UI uses a dedicated travel domain model for preferences, rankings, route segments, daily plans, budgets, and checklist items; this maps directly to the planned structured AI response.
-- Roamwise is a decision-support product, not a booking marketplace; booking actions are represented only as a preparation checklist.
+- Kalyra is a decision-support product, not a booking marketplace; booking actions are represented only as a preparation checklist.
 
 ## Product
 

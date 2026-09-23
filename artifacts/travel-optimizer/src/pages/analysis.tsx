@@ -232,7 +232,7 @@ export default function Analysis() {
                 The decision, made visible
               </p>
               <h2 className="mt-3 font-display text-4xl tracking-[-.04em] sm:text-5xl">
-                Roamwise recommendations
+                Kalyra recommendations
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-6 text-[#65706d]">
                 You stay in control. These are considered ways to spend your limited days, energy, and budget — not rules.

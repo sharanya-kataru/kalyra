@@ -224,7 +224,7 @@ class IgnavFlightProvider implements FlightProvider {
 
       if (!response.ok) {
         logger.warn({ provider: "Ignav", requestType: "round_trip", statusCode: response.status, latencyMs: Date.now() - startedAt }, "Flight provider unavailable");
-        return emptyResult(input, "Live flight information is temporarily unavailable. Roamwise is using estimated flight costs for this plan.");
+        return emptyResult(input, "Live flight information is temporarily unavailable. Kalyra is using estimated flight costs for this plan.");
       }
 
       const body = (await response.json()) as { itineraries?: unknown };
@@ -266,7 +266,7 @@ class IgnavFlightProvider implements FlightProvider {
 
       if (offers.length === 0) {
         logger.info({ provider: "Ignav", requestType: "round_trip", cache: "miss", resultCount: 0, latencyMs: Date.now() - startedAt }, "Flight provider returned no usable offers");
-        return emptyResult(input, "Live flight information was unavailable for these dates. Roamwise is using estimated flight costs for this plan.");
+        return emptyResult(input, "Live flight information was unavailable for these dates. Kalyra is using estimated flight costs for this plan.");
       }
 
       const selected = selectRecommendedOffer(offers);
@@ -286,7 +286,7 @@ class IgnavFlightProvider implements FlightProvider {
       return result;
     } catch {
       logger.warn({ provider: "Ignav", requestType: "round_trip", latencyMs: Date.now() - startedAt }, "Flight provider request failed");
-      return emptyResult(input, "Live flight information is temporarily unavailable. Roamwise is using estimated flight costs for this plan.");
+      return emptyResult(input, "Live flight information is temporarily unavailable. Kalyra is using estimated flight costs for this plan.");
     }
   }
 }
@@ -298,6 +298,6 @@ export function getFlightProvider(): FlightProvider | null {
 
 export async function searchFlights(input: FlightSearchInput): Promise<FlightSearchResult> {
   const provider = getFlightProvider();
-  if (!provider) return emptyResult(input, "Live flight information is not configured. Roamwise is using estimated flight costs for this plan.");
+  if (!provider) return emptyResult(input, "Live flight information is not configured. Kalyra is using estimated flight costs for this plan.");
   return provider.search_flights(input);
 }

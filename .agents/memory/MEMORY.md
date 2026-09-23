@@ -1,1 +1,1 @@
-- [Roamwise product direction](roamwise-product.md) — architecture, data flow, AI fallback strategy, and key file map for the full-stack Roamwise travel optimizer.
+- [Kalyra product direction](kalyra-product.md) — architecture, data flow, AI fallback strategy, and key file map for the full-stack Kalyra travel optimizer.

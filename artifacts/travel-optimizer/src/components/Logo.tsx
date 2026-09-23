@@ -15,7 +15,7 @@ export function Logo({ light = false }: { light?: boolean }) {
       >
         <Mountain size={17} strokeWidth={2.2} />
       </span>
-      <span className="font-display text-[22px] tracking-[-.04em]">roamwise</span>
+      <span className="font-display text-[22px] tracking-[-.04em]">kalyra</span>
     </Link>
   );
 }

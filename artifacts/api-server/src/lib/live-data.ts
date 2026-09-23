@@ -156,7 +156,7 @@ function applyFlightTimingContext(itinerary: ItineraryData, result: FlightSearch
             evening: {
               ...day.evening,
               activity: "Arrive, settle in, and keep the first evening unhurried",
-              description: "The recommended flight arrives late, so Roamwise protected the evening from a rushed activity.",
+              description: "The recommended flight arrives late, so Kalyra protected the evening from a rushed activity.",
             },
           }
         : day
@@ -202,7 +202,7 @@ export async function enrichItineraryWithLiveData(
           return_date: trip.end_date,
           traveler_count: trip.traveler_count,
         },
-        "Roamwise could not resolve airport codes for this route. Estimated flight costs are shown."
+        "Kalyra could not resolve airport codes for this route. Estimated flight costs are shown."
       );
 
   let enriched = attachFlightBudget(itinerary, trip, flightSearch);

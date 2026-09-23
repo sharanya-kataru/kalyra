@@ -1,4 +1,4 @@
-export type SourceLabel = "LIVE" | "ESTIMATED" | "ROAMWISE RECOMMENDED" | "FALLBACK";
+export type SourceLabel = "LIVE" | "ESTIMATED" | "KALYRA RECOMMENDED" | "FALLBACK";
 
 export interface DataSourceMetadata {
   provider: string;
@@ -29,7 +29,7 @@ export function estimatedSource(
   retrievedAt: string | null = null
 ): DataSourceMetadata {
   return {
-    provider: "Roamwise",
+    provider: "Kalyra",
     data_type: dataType,
     retrieved_at: retrievedAt,
     freshness: "estimated",
@@ -40,18 +40,18 @@ export function estimatedSource(
 
 export function recommendedSource(dataType: string): DataSourceMetadata {
   return {
-    provider: "Roamwise",
+    provider: "Kalyra",
     data_type: dataType,
     retrieved_at: null,
     freshness: "decision engine",
     is_live: false,
-    label: "ROAMWISE RECOMMENDED",
+    label: "KALYRA RECOMMENDED",
   };
 }
 
 export function fallbackSource(dataType: string, retrievedAt: string | null = null): DataSourceMetadata {
   return {
-    provider: "Roamwise",
+    provider: "Kalyra",
     data_type: dataType,
     retrieved_at: retrievedAt,
     freshness: "provider unavailable",

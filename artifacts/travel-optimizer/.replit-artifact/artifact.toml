@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Roamwise Travel Optimizer"
+title = "Kalyra Travel Optimizer"
 version = "1.0.0"
 id = "artifacts/travel-optimizer"
 router = "path"

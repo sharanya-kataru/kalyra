@@ -22,7 +22,7 @@ export default function Landing() {
               <em className="text-[#e8bc5a]">Feel at home.</em>
             </h1>
             <p className="rise rise-delay-2 mt-8 max-w-[460px] text-[17px] leading-7 text-[#d9dfd9]">
-              Roamwise turns the way you like to travel into a route worth remembering. Tell us what matters. We'll
+              Kalyra turns the way you like to travel into a route worth remembering. Tell us what matters. We'll
               make the thoughtful calls.
             </p>
             <Link
@@ -133,7 +133,7 @@ export default function Landing() {
               </p>
             </div>
             <div className="rounded-2xl bg-[#f5f0e6] p-6 text-[#203b47]">
-              <p className="font-mono-custom text-[10px] uppercase tracking-widest text-[#bb7a52]">Roamwise note</p>
+              <p className="font-mono-custom text-[10px] uppercase tracking-widest text-[#bb7a52]">Kalyra note</p>
               <p className="mt-8 text-lg leading-7">
                 "The best part of this route is what we left out: Venice, a rental car, and the need to rush."
               </p>
@@ -154,7 +154,7 @@ export default function Landing() {
         <div className="mx-auto flex max-w-[1180px] flex-col justify-between gap-5 sm:flex-row sm:items-center">
           <Logo light />
           <p className="text-xs text-[#9eb1a9]">A better way to find your way.</p>
-          <p className="font-mono-custom text-[10px] uppercase tracking-widest text-[#9eb1a9]">© 2025 roamwise</p>
+          <p className="font-mono-custom text-[10px] uppercase tracking-widest text-[#9eb1a9]">© 2025 kalyra</p>
         </div>
       </footer>
     </div>
