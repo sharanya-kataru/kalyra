@@ -48,3 +48,10 @@ External travel facts must enter Kalyra through provider-specific adapters, beco
 **Why:** Provider schemas, availability, and freshness vary; coupling them to itinerary logic would make outages or stale data destabilize the verified planning flow.
 
 **How to apply:** Cache identical provider requests, persist normalized live data with retrieval timestamps, keep estimates visibly separate, and never expose provider credentials or raw errors.
+
+## Decision engine rule
+Destination ranking must score a combined curated candidate pool against the full traveler profile, not catalog position or first-N expansion. Scores should expose confidence and the dimensions that actually influenced the result; unknown destinations stay limited-confidence.
+
+**Why:** Position-dependent and binary-interest heuristics produced rankings that were not explainable or meaningfully personalized.
+
+**How to apply:** Keep candidate pooling separate from traveler-scored selection, use the same selector for analysis and itinerary generation, and include budget, traveler count, duration/pace, season, crowds, transport, and mapped interests only when those factors are calculated.

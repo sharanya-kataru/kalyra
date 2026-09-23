@@ -18,6 +18,7 @@ import {
   type DestinationAttributes,
 } from "./destinations";
 import type { TripData, ItineraryData, RouteStop } from "./ai";
+import { scoreDestinationForTrip } from "./decision-engine";
 
 // ---------------------------------------------------------------------------
 // Output types
@@ -204,13 +205,7 @@ function computeExperienceFit(
       results.push(68); // Unknown destination — neutral score
       continue;
     }
-    const { match_score } = scoreDestinationForTraveler(
-      stop.location,
-      attrs,
-      trip.traveler_profile,
-      trip.budget_preference
-    );
-    results.push(match_score);
+    results.push(scoreDestinationForTrip(stop.location, trip).overall_score);
     names.push(stop.location);
   }
 
@@ -456,8 +451,8 @@ export function buildScoringContext(
     const attrs = lookupDestination(dest);
     if (attrs) {
       lines.push(`  • ${destinationSummary(dest, attrs)}`);
-      const match = scoreDestinationForTraveler(dest, attrs, trip.traveler_profile, trip.budget_preference);
-      lines.push(`    → Experience match for this traveler: ${match.match_score}/100. ${match.explanation}`);
+      const match = scoreDestinationForTrip(dest, trip);
+      lines.push(`    → Decision score for this traveler: ${match.overall_score}/100. ${match.explanation}`);
     } else {
       lines.push(`  • ${dest}: Not in scoring catalog — use your own knowledge.`);
     }

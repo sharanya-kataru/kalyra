@@ -5,12 +5,19 @@
  * Kalyra Travel Experience Optimization API
  * OpenAPI spec version: 0.1.0
  */
+import type { DestinationScoreConfidence } from './destinationScoreConfidence';
+import type { DestinationScoreScoreBreakdown } from './destinationScoreScoreBreakdown';
 
 export interface DestinationScore {
   name: string;
   score: number;
   reasoning: string;
   drawbacks: string;
+  confidence?: DestinationScoreConfidence;
+  score_breakdown?: DestinationScoreScoreBreakdown;
+  matched_interests?: string[];
+  strengths?: string[];
+  tradeoffs?: string[];
   /** @minimum 1 */
   recommended_nights?: number;
   why_selected?: string;

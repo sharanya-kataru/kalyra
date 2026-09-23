@@ -1,0 +1,349 @@
+Implement a focused milestone called “Kalyra Decision Engine V2.”
+
+Before changing anything, inspect the existing architecture and relevant files, especially:
+
+- artifacts/api-server/src/lib/destinations.ts
+- artifacts/api-server/src/lib/ai.ts
+- artifacts/api-server/src/lib/scoring.ts
+- artifacts/api-server/src/lib/live-data.ts
+- artifacts/api-server/src/routes/trips/
+- artifacts/travel-optimizer/src/pages/analysis.tsx
+- the existing trip/questionnaire types and generated API contracts
+
+IMPORTANT PRODUCT CONTEXT
+
+Kalyra is a travel decision and optimization platform.
+
+Its core value proposition is NOT generic itinerary generation and NOT booking.
+
+Kalyra should help travelers answer:
+- Which destinations are actually worth my limited vacation days?
+- Which places best match my interests?
+- How should I trade off experience quality, budget, pace, crowds, and transportation?
+- Why did Kalyra recommend this route instead of another one?
+
+The current deterministic recommendation system is too simplistic.
+
+Current problems include:
+
+1. Traveler interests are collapsed mainly into `hasNature` and `hasCity`.
+2. Broad destination inputs use hardcoded ROUTE_EXPANSIONS and simply take the first N entries.
+3. A route-position penalty (`i * 3`) can lower a destination’s match merely because of array position.
+4. Budget preference appears in recommendation text but does not meaningfully affect destination scoring.
+5. Actual trip budget and traveler count do not meaningfully influence destination ranking.
+6. Pace has limited influence on candidate/route selection.
+7. Recommendations and strategies are partially templated and can imply more personalization than actually occurred.
+8. Unknown destinations use very coarse regex-based scoring.
+9. The analysis UI claims destinations are ranked by the traveler's desired experience, so the underlying ranking needs to substantiate that claim.
+
+STRICT CONSTRAINTS
+
+- DO NOT add OpenAI.
+- DO NOT add Anthropic, Gemini, or any other LLM.
+- DO NOT add a new AI dependency.
+- Kalyra must remain deterministic and explainable.
+- Do not activate the dormant OpenAI path in ai.ts.
+- Do not introduce new paid APIs.
+- Preserve existing Geoapify, Ignav, and Open-Meteo integrations.
+- Preserve existing provider/fallback architecture.
+- Do not redesign the application.
+- Do not change booking/payment/social features.
+- Do not perform unrelated refactors.
+- Do not remove working live-data functionality.
+- Do not modify generated API-client files manually unless regeneration is already part of this repository's established workflow.
+- Keep TypeScript strict/typecheck passing.
+- Keep the current API response compatible with the existing frontend unless a small additive field is necessary.
+
+GOAL
+
+Build a deterministic, multidimensional traveler-to-destination decision engine.
+
+The conceptual pipeline should become:
+
+Questionnaire
+→ traveler preference profile
+→ candidate destination pool
+→ multidimensional destination scoring
+→ duration/budget/pacing-aware candidate selection
+→ explainable ranked shortlist
+→ route candidates
+→ itinerary generation
+→ existing live-data enrichment
+
+Do not build worldwide dynamic destination discovery in this milestone.
+
+The existing destination catalog should remain the curated knowledge layer.
+
+PART 1 — TRAVELER PREFERENCE PROFILE
+
+Replace the binary nature-vs-city interpretation with a deterministic preference model.
+
+Use the actual questionnaire interests individually.
+
+Map questionnaire interests onto existing destination attributes.
+
+Examples:
+
+Nature → nature
+Mountain landscapes → nature + photography
+Photography → photography
+Food / Local food → food
+Culture → culture
+History → culture
+Art & design → culture + photography
+Architecture → culture + photography
+Adventure → nature + uniqueness
+Water & swimming → nature + uniqueness
+Shopping → culture + uniqueness
+Nightlife → culture + uniqueness
+
+Use explicit mappings/constants so the model is inspectable and testable.
+
+Do NOT invent destination-level scores for attributes that do not exist in the catalog.
+
+Normalize the resulting traveler weights so selecting several interests does not automatically inflate the overall score.
+
+PART 2 — MULTIDIMENSIONAL DESTINATION SCORING
+
+Create or refactor a single reusable deterministic destination scoring function.
+
+The destination match should consider at least:
+
+A. Interest fit
+Compare normalized traveler interest weights against the destination catalog attributes.
+
+B. Budget fit
+Use:
+- trip total budget
+- traveler count
+- trip duration
+- destination avg_daily_cost_usd
+- budget_preference
+
+Be explicit about whether catalog daily cost is interpreted per traveler or per trip and keep that assumption consistent.
+
+Budget fit should penalize destinations that substantially exceed the traveler’s usable on-the-ground budget, but it should not completely overwhelm experience fit.
+
+C. Pace/stay fit
+Use:
+- trip duration
+- travel_style
+- ideal_stay_days
+
+Slow/unhurried travelers should favor fewer bases with stays closer to the middle/upper portion of ideal ranges.
+
+Faster travelers may tolerate more bases and stays closer to minimum ideal lengths.
+
+D. Crowd fit
+Use crowd_level as a transparent tradeoff.
+Do not automatically make crowds a large penalty for every traveler.
+If the questionnaire does not explicitly contain a crowd preference, keep this a modest universal friction term.
+
+E. Season fit
+Use the trip month and best_months.
+This should affect the score modestly and be visible in reasoning.
+
+F. Transport friction
+Use transport_complexity as a modest factor, particularly when the trip contains multiple bases.
+
+G. Uniqueness
+Use uniqueness as part of experience fit when the traveler's selected interests imply exploration/adventure, rather than applying it equally to everyone.
+
+Return a structured breakdown, ideally something conceptually similar to:
+
+{
+  overall_score,
+  interest_fit,
+  budget_fit,
+  pace_fit,
+  season_fit,
+  crowd_fit,
+  transport_fit,
+  matched_interests,
+  strengths,
+  tradeoffs
+}
+
+Do not force this exact shape if it conflicts with existing types, but keep the calculation internally structured and explainable.
+
+Scores must be deterministic for the same input.
+
+REMOVE the existing route-position penalty (`i * 3`).
+
+PART 3 — CANDIDATE SELECTION BEFORE ROUTE CONSTRUCTION
+
+Refactor broad destination handling.
+
+Current behavior such as:
+
+Italy, 8 days
+→ Milan
+→ Lake Como
+→ Florence
+
+simply because those destinations appear first in ROUTE_EXPANSIONS is not acceptable.
+
+ROUTE_EXPANSIONS may remain as a candidate POOL for known broad regions/countries.
+
+For each requested broad region:
+
+1. collect all plausible candidates from the existing expansion/catalog;
+2. score those candidates for this traveler;
+3. rank candidates by traveler fit;
+4. choose a duration-appropriate number of bases;
+5. account for pacing;
+6. avoid selecting more bases than can reasonably fit the trip.
+
+For multi-country input such as:
+
+“Italy and Switzerland”
+
+do NOT independently select 3 Italian + 3 Swiss bases for an 8-day trip.
+
+Build the combined candidate pool first, score it, and choose a reasonable TOTAL number of bases for the entire trip.
+
+Preserve geographic representation where reasonable:
+if the user explicitly requested multiple countries/regions, avoid silently dropping an entire requested country solely because another country scores slightly higher, unless duration makes covering both unreasonable.
+
+The selection logic should be deterministic.
+
+PART 4 — EXPLAINABLE ANALYSIS
+
+Update the deterministic `buildFallbackAnalysis` path to use the new scoring/selection engine.
+
+Remember: this deterministic path is the active Kalyra behavior.
+
+The analysis should truthfully explain WHY each destination was selected.
+
+Do not write text claiming budget, pace, season, or another factor influenced a decision unless that factor actually participated in the calculation.
+
+For each destination, reasoning should surface the most important strengths and tradeoffs.
+
+For example:
+
+“Zermatt strongly matches your nature and photography priorities. Its higher daily cost lowers budget fit, while a 3-night stay fits your slower travel pace.”
+
+Do not hardcode that exact sentence.
+
+Generate explanation from actual score components.
+
+Recommendations should be derived from computed results where possible:
+- strongest-fit destination
+- weakest selected destination
+- budget pressure
+- excessive number of transitions
+- off-season mismatch
+- high crowd friction
+- pacing mismatch
+
+Avoid recommendations that always appear regardless of the trip.
+
+Strategies can remain deterministic, but whether they appear/recommend should be grounded in the trip’s actual tradeoffs.
+
+PART 5 — ITINERARY CONSISTENCY
+
+Ensure `generateItinerary()` uses the SAME selected candidate/route logic as analysis.
+
+We must not have:
+
+Analysis recommends destinations A/B/C
+but Generate independently chooses X/Y/Z.
+
+Create a shared deterministic selection path if necessary.
+
+Preserve existing Geoapify place enrichment, Ignav flights, Open-Meteo weather, budget enrichment, versioning, refinement, and Trip Health Score behavior.
+
+Do not regress the live-data performance optimizations already present.
+
+PART 6 — UNKNOWN DESTINATIONS
+
+Do not attempt worldwide dynamic destination discovery in this milestone.
+
+If a destination is not in the curated catalog:
+
+- preserve graceful fallback behavior;
+- do not fabricate precise 90/100-style confidence from a regex;
+- clearly treat the recommendation as lower-confidence / limited-data if the existing API structure allows this;
+- avoid fake precision.
+
+Do not add another external provider solely to solve this.
+
+PART 7 — FRONTEND
+
+Do NOT redesign analysis.tsx.
+
+Reuse the existing UI.
+
+If the current API already exposes enough information, simply improve the content being rendered.
+
+If a small additive breakdown field can be introduced safely without destabilizing generated clients, you may expose useful score components.
+
+However, backend decision quality is more important than adding new UI.
+
+Keep:
+- trip strategy
+- destination match score
+- reasoning
+- drawbacks/tradeoffs
+- recommended nights
+- why selected
+- experience highlights
+- recommendations
+- strategies
+
+Ensure the displayed percentage is actually the deterministic overall destination match.
+
+Remove misleading frontend fallback values such as a default 90% match if appropriate; unavailable data should not masquerade as a high score.
+
+PART 8 — TESTING
+
+Add focused deterministic tests for the decision engine.
+
+At minimum test:
+
+1. A nature/photography traveler ranks a strong nature destination above an urban destination when other constraints are reasonable.
+
+2. A food/culture traveler can produce a different ranking from the nature traveler.
+
+3. Tight budget meaningfully changes budget fit/ranking compared with a flexible budget.
+
+4. Slow pace selects fewer bases than a faster pace for the same broad destination and duration where appropriate.
+
+5. “Italy and Switzerland” for an 8-day trip does NOT produce six bases.
+
+6. Candidate ordering in ROUTE_EXPANSIONS does not independently determine ranking.
+
+7. Same input produces same scores/results.
+
+8. Unknown/non-catalog destinations do not receive fabricated high-confidence precision.
+
+Use the repository's existing test framework. Do not install a new testing framework unless absolutely necessary.
+
+VALIDATION
+
+Before finishing:
+
+- run the repository typecheck
+- run relevant tests
+- run the build
+- inspect for accidental unrelated changes
+- confirm no OpenAI/LLM path was activated
+- confirm existing live-data provider integrations remain intact
+
+DELIVERABLE
+
+After implementation, give me:
+
+1. A concise architecture summary of Decision Engine V2.
+2. Exact files changed.
+3. The scoring formula/weights used.
+4. How traveler interests map to catalog dimensions.
+5. How budget and traveler count affect scoring.
+6. How number of route bases is chosen.
+7. What happens for multi-country requests.
+8. What happens for unknown destinations.
+9. Tests added and results.
+10. Typecheck/build results.
+11. Any limitations that remain.
+
+Do not make additional product changes outside this milestone.

@@ -30,11 +30,34 @@ export interface TripInput {
   traveler_profile: TravelerProfile;
 }
 
+export type DestinationScoreConfidence = typeof DestinationScoreConfidence[keyof typeof DestinationScoreConfidence];
+
+
+export const DestinationScoreConfidence = {
+  high: 'high',
+  limited: 'limited',
+} as const;
+
+export type DestinationScoreScoreBreakdown = {
+  interest_fit: number;
+  budget_fit: number;
+  pace_fit: number;
+  season_fit: number;
+  crowd_fit: number;
+  transport_fit: number;
+  uniqueness_fit: number;
+};
+
 export interface DestinationScore {
   name: string;
   score: number;
   reasoning: string;
   drawbacks: string;
+  confidence?: DestinationScoreConfidence;
+  score_breakdown?: DestinationScoreScoreBreakdown;
+  matched_interests?: string[];
+  strengths?: string[];
+  tradeoffs?: string[];
   /** @minimum 1 */
   recommended_nights?: number;
   why_selected?: string;

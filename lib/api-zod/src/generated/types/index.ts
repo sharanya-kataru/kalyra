@@ -20,6 +20,8 @@ export * from './dailyTransportation';
 export * from './dataSourceMetadata';
 export * from './dataSourceMetadataLabel';
 export * from './destinationScore';
+export * from './destinationScoreConfidence';
+export * from './destinationScoreScoreBreakdown';
 export * from './errorResponse';
 export * from './flightLeg';
 export * from './flightOffer';

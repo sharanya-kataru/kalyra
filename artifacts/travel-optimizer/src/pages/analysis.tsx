@@ -120,7 +120,7 @@ export default function Analysis() {
                   <RouteIcon size={18} />
                   <p className="mt-8 text-xs text-[#5d6863]">Match score</p>
                   <p className="mt-1 font-mono-custom text-2xl">
-                    {analysis?.destinations?.[0]?.score || 90}%
+                    {analysis?.destinations?.[0]?.score ?? '—'}%
                   </p>
                 </div>
               </div>
@@ -173,6 +173,11 @@ export default function Analysis() {
                       <div className="min-w-0 flex-1">
                         <p className="text-xs text-[#65706d]">Destination {i + 1}</p>
                         <h3 className="mt-0.5 text-lg font-bold">{d.name}</h3>
+                         {d.confidence === 'limited' && (
+                           <span className="mt-1 inline-flex rounded-full border border-[#c9c1b2] px-2 py-0.5 text-[9px] uppercase tracking-wider text-[#65706d]">
+                             Limited catalog data
+                           </span>
+                         )}
                       </div>
                       <div className="hidden text-right sm:block">
                         <p className="font-mono-custom text-2xl text-[#bb7a52]">{d.score}%</p>
@@ -184,12 +189,35 @@ export default function Analysis() {
                       <div className="grid gap-5 border-t border-[#e2ddd2] px-5 pb-5 pt-4 sm:grid-cols-[1fr_auto] sm:pl-[86px]">
                         <div>
                           <p className="max-w-2xl text-sm leading-6 text-[#65706d]">{d.reasoning}</p>
+                           {d.matched_interests && d.matched_interests.length > 0 && (
+                             <p className="mt-3 text-xs text-[#65706d]">
+                               Matched interests: <span className="font-semibold text-[#203b47]">{d.matched_interests.join(' · ')}</span>
+                             </p>
+                           )}
                           {d.drawbacks && (
                             <div className="mt-3">
                               <p className="text-xs font-semibold text-[#bb7a52]">Worth noting:</p>
                               <p className="mt-1 text-xs leading-5 text-[#65706d]">{d.drawbacks}</p>
                             </div>
                           )}
+                           {d.score_breakdown && (
+                             <div className="mt-4 border-t border-[#e2ddd2] pt-4">
+                               <p className="text-[10px] uppercase tracking-wider text-[#bb7a52]">Decision factors</p>
+                               <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[#65706d] sm:grid-cols-4">
+                                 {[
+                                   ['Interest', d.score_breakdown.interest_fit],
+                                   ['Budget', d.score_breakdown.budget_fit],
+                                   ['Pace', d.score_breakdown.pace_fit],
+                                   ['Season', d.score_breakdown.season_fit],
+                                   ['Crowds', d.score_breakdown.crowd_fit],
+                                   ['Transport', d.score_breakdown.transport_fit],
+                                   ['Uniqueness', d.score_breakdown.uniqueness_fit],
+                                 ].map(([label, value]) => (
+                                   <span key={label}><span className="font-semibold text-[#203b47]">{label}</span> {value}/100</span>
+                                 ))}
+                               </div>
+                             </div>
+                           )}
                           {(d.recommended_nights || d.why_selected || d.experience_highlights?.length || d.estimated_cost_usd !== undefined) && (
                             <div className="mt-4 grid gap-3 border-t border-[#e2ddd2] pt-4 sm:grid-cols-2">
                               <div>

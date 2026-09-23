@@ -1174,14 +1174,10 @@ function canonicalKey(value: string): string {
 }
 
 /**
- * Converts broad country/region inputs into usable itinerary bases.
- * The selection is deterministic and duration-aware; the LLM may refine the
- * order, but it cannot collapse a country back into one unusable stop.
+ * Returns the complete curated candidate pool for a destination request.
+ * Selection and ordering happen in the decision engine, not by catalog order.
  */
-export function resolveRouteCandidates(
-  destinationInput: string,
-  totalDays: number
-): RouteCandidate[] {
+export function getRouteCandidatePool(destinationInput: string): RouteCandidate[] {
   const chunks = destinationInput
     .split(/[,/&+]+|\s+and\s+/i)
     .map((chunk) => chunk.trim())
@@ -1195,8 +1191,7 @@ export function resolveRouteCandidates(
     )?.[1];
 
     if (expansion) {
-      const maxStops = totalDays >= 12 ? 4 : totalDays >= 8 ? 3 : totalDays >= 5 ? 2 : 1;
-      expanded.push(...expansion.slice(0, maxStops));
+      expanded.push(...expansion);
       continue;
     }
 
@@ -1211,14 +1206,19 @@ export function resolveRouteCandidates(
       all.findIndex((other) => other.name.toLowerCase() === candidate.name.toLowerCase()) === index
   );
 
-  // One broad location for a multi-day trip is not useful. Prefer known
-  // nearby bases when the catalog has enough context.
-  if (unique.length === 1 && totalDays >= 5) {
-    const broad = ROUTE_EXPANSIONS[canonicalKey(unique[0].name)];
-    if (broad) return broad.slice(0, totalDays >= 8 ? 3 : 2);
-  }
-
   return unique.length > 0 ? unique : [{ name: destinationInput.trim(), country: inferCountry(destinationInput) }];
+}
+
+/**
+ * Compatibility helper for itinerary normalization and modification flows.
+ * New analysis and generation use the scored selection path instead.
+ */
+export function resolveRouteCandidates(
+  destinationInput: string,
+  totalDays: number
+): RouteCandidate[] {
+  const maxStops = totalDays >= 12 ? 4 : totalDays >= 8 ? 3 : totalDays >= 5 ? 2 : 1;
+  return getRouteCandidatePool(destinationInput).slice(0, maxStops);
 }
 
 function titleCase(value: string): string {

@@ -287,6 +287,46 @@ components:
           type: string
         drawbacks:
           type: string
+        confidence:
+          type: string
+          enum: ["high", "limited"]
+        score_breakdown:
+          type: object
+          properties:
+            interest_fit:
+              type: integer
+            budget_fit:
+              type: integer
+            pace_fit:
+              type: integer
+            season_fit:
+              type: integer
+            crowd_fit:
+              type: integer
+            transport_fit:
+              type: integer
+            uniqueness_fit:
+              type: integer
+          required:
+            - interest_fit
+            - budget_fit
+            - pace_fit
+            - season_fit
+            - crowd_fit
+            - transport_fit
+            - uniqueness_fit
+        matched_interests:
+          type: array
+          items:
+            type: string
+        strengths:
+          type: array
+          items:
+            type: string
+        tradeoffs:
+          type: array
+          items:
+            type: string
         recommended_nights:
           type: integer
           minimum: 1
