@@ -36,7 +36,7 @@ export interface WeatherProvider {
   get_forecast(input: WeatherSearchInput): Promise<WeatherSearchResult>;
 }
 
-const FORECAST_DAYS = 16;
+const FORECAST_DAYS = 15;
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const weatherCache = new Map<string, { expiresAt: number; result: WeatherSearchResult }>();
 

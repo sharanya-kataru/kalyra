@@ -129,26 +129,48 @@ export async function collectPlaceContext(
   interests: string[]
 ): Promise<string> {
   const provider = getPlacesProvider();
-  if (!provider) return "No live Places provider configured. Use scoring catalog and fallback behavior.";
+  if (!provider) {
+    return "No live Places provider configured. Use scoring catalog and fallback behavior.";
+  }
 
   const wantsNature = interests.some((interest) =>
     /nature|mountain|photography|water|adventure/i.test(interest)
   );
-  const wantsFood = interests.some((interest) => /food|culinary|restaurant/i.test(interest));
-  const lines: string[] = ["Real place options retrieved from Geoapify (use these where relevant):"];
 
-  for (const destination of destinations) {
-    const [attractions, restaurants, nature] = await Promise.all([
-      provider.search_attractions(destination, 4),
-      wantsFood ? provider.search_restaurants(destination, 3) : Promise.resolve([]),
-      wantsNature ? provider.search_nature(destination, 3) : Promise.resolve([]),
-    ]);
-    const places = [...attractions, ...restaurants, ...nature];
-    if (places.length === 0) continue;
-    lines.push(`  ${destination}: ${places.map((place) => `${place.name} (${place.category})`).join(", ")}`);
-  }
+  const wantsFood = interests.some((interest) =>
+    /food|culinary|restaurant/i.test(interest)
+  );
 
-  return lines.length === 1 ? "Places provider returned no results; use catalog and fallback behavior." : lines.join("\n");
+  const destinationLines = await Promise.all(
+    destinations.map(async (destination) => {
+      const [attractions, restaurants, nature] = await Promise.all([
+        provider.search_attractions(destination, 4),
+        wantsFood
+          ? provider.search_restaurants(destination, 3)
+          : Promise.resolve([]),
+        wantsNature
+          ? provider.search_nature(destination, 3)
+          : Promise.resolve([]),
+      ]);
+
+      const places = [...attractions, ...restaurants, ...nature];
+
+      if (places.length === 0) return null;
+
+      return `  ${destination}: ${places
+        .map((place) => `${place.name} (${place.category})`)
+        .join(", ")}`;
+    })
+  );
+
+  const lines = [
+    "Real place options retrieved from Geoapify (use these where relevant):",
+    ...destinationLines.filter((line): line is string => line !== null),
+  ];
+
+  return lines.length === 1
+    ? "Places provider returned no results; use catalog and fallback behavior."
+    : lines.join("\n");
 }
 
 export interface ResolvedLocation {
@@ -659,74 +681,128 @@ async function searchAirportRadius(
     const features = Array.isArray(body.features) ? body.features : [];
     if (features.length === 0) return existingCandidates;
 
-    for (const feature of features) {
-      const properties = feature.properties ?? {};
-      const propertyRecord = properties as Record<string, unknown>;
-      const name = getPropertyText(propertyRecord.name);
-      if (!name) continue;
+    const resolvedCandidates = await Promise.all(
+      features.map(async (feature): Promise<AirportCandidate | null> => {
+        const properties = feature.properties ?? {};
+        const propertyRecord = properties as Record<string, unknown>;
+        const name = getPropertyText(propertyRecord.name);
 
-      const categories = normalizeCategories(propertyRecord.categories);
-      if (!categories.some((category) => category.toLowerCase().includes("airport"))) {
-        continue;
-      }
+        if (!name) return null;
 
-      const placeId = getPropertyText(propertyRecord.place_id) ?? (typeof feature.id === "string" ? feature.id : undefined);
-      const distanceMeters = Number(propertyRecord.distance ?? 0);
-      const lat = Number(propertyRecord.lat);
-      const lon = Number(propertyRecord.lon);
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        const categories = normalizeCategories(propertyRecord.categories);
 
-      const airportMeta = getAirportMeta((propertyRecord.airport as unknown) ?? propertyRecord);
-      const iata = normalizeIata(
-        airportMeta.iata ?? propertyRecord.iata ?? (propertyRecord.airport as Record<string, unknown> | undefined)?.iata
-      );
-      const icao = normalizeIcao(
-        airportMeta.icao ?? propertyRecord.icao ?? (propertyRecord.airport as Record<string, unknown> | undefined)?.icao
-      );
-      const closestTown = getPropertyText(
-        airportMeta.closest_town ?? propertyRecord.closest_town ?? (propertyRecord.airport as Record<string, unknown> | undefined)?.closest_town
-      );
-
-      const hasExplicitlyInvalidCategory = categories.some((category) => /airport\.(private|military|gliding)/i.test(category));
-      if (hasExplicitlyInvalidCategory) continue;
-
-      const candidate: AirportCandidate = {
-        name,
-        formatted: getPropertyText(propertyRecord.formatted),
-        iata,
-        icao,
-        closest_town: closestTown,
-        city: getPropertyText(propertyRecord.city),
-        country: getPropertyText(propertyRecord.country),
-        country_code: getPropertyText(propertyRecord.country_code),
-        lat,
-        lon,
-        distance_km: Number.isFinite(distanceMeters) ? distanceMeters / 1000 : 0,
-        categories,
-        place_id: placeId,
-        source: "Geoapify",
-      };
-
-      if (candidate.place_id) {
-        const details = await getAirportPlaceDetails(candidate.place_id, apiKey);
-        if (details) {
-          candidate.iata = details.iata ?? candidate.iata;
-          candidate.icao = details.icao ?? candidate.icao;
-          candidate.closest_town = details.closest_town ?? candidate.closest_town;
+        if (
+          !categories.some((category) =>
+            category.toLowerCase().includes("airport")
+          )
+        ) {
+          return null;
         }
-      }
 
-      if (!candidate.iata) continue;
+        const placeId =
+          getPropertyText(propertyRecord.place_id) ??
+          (typeof feature.id === "string" ? feature.id : undefined);
 
-      const dedupeKey = candidate.place_id ?? `${candidate.name}|${candidate.lat}|${candidate.lon}`;
+        const distanceMeters = Number(propertyRecord.distance ?? 0);
+        const lat = Number(propertyRecord.lat);
+        const lon = Number(propertyRecord.lon);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          return null;
+        }
+
+        const airportMeta = getAirportMeta(
+          (propertyRecord.airport as unknown) ?? propertyRecord
+        );
+
+        const iata = normalizeIata(
+          airportMeta.iata ??
+            propertyRecord.iata ??
+            (propertyRecord.airport as Record<string, unknown> | undefined)?.iata
+        );
+
+        const icao = normalizeIcao(
+          airportMeta.icao ??
+            propertyRecord.icao ??
+            (propertyRecord.airport as Record<string, unknown> | undefined)?.icao
+        );
+
+        const closestTown = getPropertyText(
+          airportMeta.closest_town ??
+            propertyRecord.closest_town ??
+            (propertyRecord.airport as Record<string, unknown> | undefined)
+              ?.closest_town
+        );
+
+        const hasExplicitlyInvalidCategory = categories.some((category) =>
+          /airport\.(private|military|gliding)/i.test(category)
+        );
+
+        if (hasExplicitlyInvalidCategory) return null;
+
+        const candidate: AirportCandidate = {
+          name,
+          formatted: getPropertyText(propertyRecord.formatted),
+          iata,
+          icao,
+          closest_town: closestTown,
+          city: getPropertyText(propertyRecord.city),
+          country: getPropertyText(propertyRecord.country),
+          country_code: getPropertyText(propertyRecord.country_code),
+          lat,
+          lon,
+          distance_km: Number.isFinite(distanceMeters)
+            ? distanceMeters / 1000
+            : 0,
+          categories,
+          place_id: placeId,
+          source: "Geoapify",
+        };
+
+        // Only request additional metadata when the Places response did not
+        // already provide the IATA code.
+        if (!candidate.iata && candidate.place_id) {
+          const details = await getAirportPlaceDetails(
+            candidate.place_id,
+            apiKey
+          );
+
+          if (details) {
+            candidate.iata = details.iata ?? candidate.iata;
+            candidate.icao = details.icao ?? candidate.icao;
+            candidate.closest_town =
+              details.closest_town ?? candidate.closest_town;
+          }
+        }
+
+        return candidate.iata ? candidate : null;
+      })
+    );
+
+    for (const candidate of resolvedCandidates) {
+      if (!candidate) continue;
+
+      const dedupeKey =
+        candidate.place_id ??
+        `${candidate.name}|${candidate.lat}|${candidate.lon}`;
+
       if (seen.has(dedupeKey)) continue;
+
       seen.add(dedupeKey);
       existingCandidates.push(candidate);
     }
-
-    return existingCandidates;
+        return existingCandidates;
   } catch (error) {
-    logger.warn({ provider: "Geoapify", requestType: "airport_discovery", radiusMeters, error }, "Airport discovery failed");
+    logger.warn(
+      {
+        provider: "Geoapify",
+        requestType: "airport_discovery",
+        radiusMeters,
+        error,
+      },
+      "Airport discovery failed"
+    );
+
     return existingCandidates;
   }
 }

@@ -371,8 +371,32 @@ export async function enrichItineraryWithLiveData(
   itinerary: ItineraryData,
   trip: TripData
 ): Promise<ItineraryData> {
-  const flightInputs = await buildFlightInputs(trip, itinerary);
+  const weatherPromise = Promise.all(
+  [...new Set(itinerary.daily_itinerary.map((day) => day.location))]
+    .map((location) => {
+      const coordinates = resolveDestinationCoordinates(location);
 
+      if (!coordinates) return null;
+
+      const input: WeatherSearchInput = {
+        location,
+        ...coordinates,
+        start_date: trip.start_date,
+        end_date: trip.end_date,
+      };
+
+      return getWeatherForecast(input);
+    })
+    .filter(
+      (
+        result
+      ): result is Promise<
+        Awaited<ReturnType<typeof getWeatherForecast>>
+      > => result !== null
+    )
+);
+
+const flightInputs = await buildFlightInputs(trip, itinerary);
 const liveFlightSearch = await searchFlightCandidates(flightInputs);
 
 const flightSearch =
@@ -390,24 +414,12 @@ const flightSearch =
       : "Kalyra could not resolve airport codes for this route. Estimated flight costs are shown."
   );
 
-  let enriched = attachFlightBudget(itinerary, trip, flightSearch);
-  const timingContext = applyFlightTimingContext(enriched, flightSearch);
-  enriched = timingContext.itinerary;
-  const weatherResults = await Promise.all(
-    [...new Set(enriched.daily_itinerary.map((day) => day.location))]
-      .map((location) => {
-        const coordinates = resolveDestinationCoordinates(location);
-        if (!coordinates) return null;
-        const input: WeatherSearchInput = {
-          location,
-          ...coordinates,
-          start_date: trip.start_date,
-          end_date: trip.end_date,
-        };
-        return getWeatherForecast(input);
-      })
-      .filter((result): result is Promise<Awaited<ReturnType<typeof getWeatherForecast>>> => result !== null)
-  );
+let enriched = attachFlightBudget(itinerary, trip, flightSearch);
+
+const timingContext = applyFlightTimingContext(enriched, flightSearch);
+enriched = timingContext.itinerary;
+
+const weatherResults = await weatherPromise;
   const weather = weatherResults.flatMap((result) => result.summaries);
   const weatherByDay = new Map(weather.map((summary) => [`${summary.location}|${summary.date}`, summary]));
   enriched = {
