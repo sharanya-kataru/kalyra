@@ -37,8 +37,6 @@ export interface ActivityProvider {
 class GeoapifyPlacesProvider implements PlacesProvider {
   private readonly apiKey: string;
   private readonly baseUrl = "https://api.geoapify.com/v2/places";
-  private readonly geocodeUrl = "https://api.geoapify.com/v1/geocode/search";
-  private readonly coordinatesCache = new Map<string, Promise<{ lat: number; lon: number } | null>>();
   private readonly placesCache = new Map<string, { expiresAt: number; places: PlaceResult[] }>();
 
   constructor(apiKey: string) {
@@ -46,30 +44,9 @@ class GeoapifyPlacesProvider implements PlacesProvider {
   }
 
   private async resolveCoordinates(query: string): Promise<{ lat: number; lon: number } | null> {
-    const cached = this.coordinatesCache.get(query);
-    if (cached) return cached;
-
-    const request = (async () => {
-      try {
-        const url = new URL(this.geocodeUrl);
-        url.searchParams.set("text", query);
-        url.searchParams.set("limit", "1");
-        url.searchParams.set("apiKey", this.apiKey);
-        const response = await fetch(url, { signal: AbortSignal.timeout(6_000) });
-        if (!response.ok) return null;
-        const body = (await response.json()) as {
-          results?: Array<{ lat?: unknown; lon?: unknown }>;
-        };
-        const result = body.results?.[0];
-        const lat = Number(result?.lat);
-        const lon = Number(result?.lon);
-        return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
-      } catch {
-        return null;
-      }
-    })();
-    this.coordinatesCache.set(query, request);
-    return request;
+    const location = await resolveLocation(query);
+    if (!location) return null;
+    return { lat: location.lat, lon: location.lon };
   }
 
   private async search(query: string, categories: string, limit = 5): Promise<PlaceResult[]> {
@@ -171,4 +148,90 @@ export async function collectPlaceContext(
   }
 
   return lines.length === 1 ? "Places provider returned no results; use catalog and fallback behavior." : lines.join("\n");
+}
+
+export interface ResolvedLocation {
+  query: string;
+  formatted?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  country_code?: string;
+  lat: number;
+  lon: number;
+  source: "Geoapify";
+}
+
+const locationCache: Record<string, ResolvedLocation> = {};
+
+export async function resolveLocation(query: string): Promise<ResolvedLocation | null> {
+  const apiKey = process.env.GEOAPIFY_API_KEY;
+  if (!apiKey) {
+    logger.warn({ provider: "Geoapify", requestType: "geocode" }, "Geoapify API key is not configured");
+    return null;
+  }
+
+  const cacheKey = query.trim().toLowerCase();
+  if (locationCache[cacheKey]) {
+    return locationCache[cacheKey];
+  }
+
+  try {
+    const url = new URL("https://api.geoapify.com/v1/geocode/search");
+    url.searchParams.set("text", query);
+    url.searchParams.set("limit", "1");
+    url.searchParams.set("apiKey", apiKey);
+
+    const response = await fetch(url, { signal: AbortSignal.timeout(6_000) });
+    if (!response.ok) {
+      logger.warn(
+        { provider: "Geoapify", requestType: "geocode", statusCode: response.status },
+        "Geoapify geocoding request failed"
+      );
+      return null;
+    }
+
+    const body = (await response.json()) as {
+      features?: Array<{
+        geometry?: { coordinates?: [number, number] };
+        properties?: {
+          formatted?: string;
+          city?: string;
+          state?: string;
+          country?: string;
+          country_code?: string;
+        };
+      }>;
+    };
+    const result = body.features?.[0];
+
+    if (!result || !result.geometry || !result.properties || !Array.isArray(result.geometry.coordinates)) {
+      logger.warn({ provider: "Geoapify", requestType: "geocode" }, "Geoapify geocoding response missing result data");
+      return null;
+    }
+
+    const [lon, lat] = result.geometry.coordinates;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      logger.warn({ provider: "Geoapify", requestType: "geocode" }, "Geoapify geocoding response missing valid coordinates");
+      return null;
+    }
+
+    const resolvedLocation: ResolvedLocation = {
+      query,
+      formatted: result.properties.formatted,
+      city: result.properties.city,
+      state: result.properties.state,
+      country: result.properties.country,
+      country_code: result.properties.country_code,
+      lat,
+      lon,
+      source: "Geoapify",
+    };
+
+    locationCache[cacheKey] = resolvedLocation;
+    return resolvedLocation;
+  } catch (error) {
+    logger.warn({ provider: "Geoapify", requestType: "geocode", error }, "Geoapify geocoding failed");
+    return null;
+  }
 }
