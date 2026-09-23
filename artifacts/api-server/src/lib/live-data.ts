@@ -111,9 +111,41 @@ async function resolveDynamicAirportIata(locationString: string): Promise<string
     if (!resolved) return null;
 
     const airports = await discoverNearbyAirports(resolved);
+
     return airports.find((airport) => Boolean(airport.iata))?.iata ?? null;
   } catch {
     return null;
+  }
+}
+
+async function resolveDynamicAirportIatas(
+  locationString: string,
+  maxAirports = 4
+): Promise<string[]> {
+  const trimmed = locationString.trim();
+  if (!trimmed) return [];
+
+  try {
+    const resolved = await resolveLocation(trimmed);
+    if (!resolved) return [];
+
+    const airports = await discoverNearbyAirports(resolved);
+
+    return airports
+      .map((airport) => airport.iata)
+      .filter((iata): iata is string => Boolean(iata))
+      .slice(0, maxAirports);
+  } catch (error) {
+    logger.warn(
+      {
+        requestType: "airport_candidate_resolution",
+        location: trimmed,
+        error,
+      },
+      "Airport candidate resolution failed"
+    );
+
+    return [];
   }
 }
 
@@ -136,15 +168,17 @@ function noFlightResult(input: FlightSearchInput, message: string): FlightSearch
   };
 }
 
-async function buildFlightInput(trip: TripData, itinerary: ItineraryData): Promise<FlightSearchInput | null> {
-  const origin = (await resolveDynamicAirportIata(trip.starting_location)) ?? resolveAirportCode(trip.starting_location);
-
+async function buildFlightInputs(
+  trip: TripData,
+  itinerary: ItineraryData
+): Promise<FlightSearchInput[]> {
   const firstDestination = itinerary.route[0]?.location ?? trip.destination;
 
-  // Provide geographic context when resolving the first itinerary destination.
-  // If firstDestination is just a city name (e.g., "Florence"), append trip.destination context
-  // to disambiguate (e.g., "Florence, Italy"). This ensures Geoapify resolves to the correct location.
-  const destinationWithContext = normalizeLocationWithContext(firstDestination, trip.destination);
+  const destinationWithContext = normalizeLocationWithContext(
+    firstDestination,
+    trip.destination
+  );
+
   logger.info(
     {
       firstDestination,
@@ -154,40 +188,51 @@ async function buildFlightInput(trip: TripData, itinerary: ItineraryData): Promi
     "Destination context resolved"
   );
 
-  let destination: string | null = await resolveDynamicAirportIata(destinationWithContext);
-  if (!destination) {
-    destination = resolveAirportCode(firstDestination, true);
-  }
-  if (!destination && firstDestination !== trip.destination) {
-    destination = (await resolveDynamicAirportIata(trip.destination)) ?? resolveAirportCode(trip.destination, true);
-  }
-  if (!destination) {
-    destination = resolveAirportCode(trip.destination, true);
+  let [origins, destinations] = await Promise.all([
+    resolveDynamicAirportIatas(trip.starting_location, 6),
+    resolveDynamicAirportIatas(destinationWithContext, 2),
+  ]);
+
+  if (origins.length === 0) {
+    const fallbackOrigin = resolveAirportCode(trip.starting_location);
+    if (fallbackOrigin) origins = [fallbackOrigin];
   }
 
-  if (!origin || !destination) return null;
+  if (destinations.length === 0) {
+    const fallbackDestination =
+      resolveAirportCode(firstDestination, true) ??
+      resolveAirportCode(trip.destination, true);
+
+    if (fallbackDestination) destinations = [fallbackDestination];
+  }
+
+  if (origins.length === 0 || destinations.length === 0) {
+    return [];
+  }
 
   logger.info(
     {
-      origin,
-      destination,
+      origins,
+      destinations,
       departureDate: trip.start_date,
       returnDate: trip.end_date,
-      requestType: "flight_input",
+      requestType: "flight_inputs",
     },
-    "Flight input resolved"
+    "Flight inputs resolved"
   );
 
-  return {
-    origin,
-    destination,
-    departure_date: trip.start_date,
-    return_date: trip.end_date,
-    traveler_count: trip.traveler_count,
-    cabin_class: "economy",
-    market: "US",
-    currency: "USD",
-  };
+  return destinations.flatMap((destination) =>
+    origins.map((origin) => ({
+      origin,
+      destination,
+      departure_date: trip.start_date,
+      return_date: trip.end_date,
+      traveler_count: trip.traveler_count,
+      cabin_class: "economy" as const,
+      market: "US",
+      currency: "USD" as const,
+    }))
+  );
 }
 
 function attachFlightBudget(itinerary: ItineraryData, trip: TripData, result: FlightSearchResult): ItineraryData {
@@ -264,23 +309,86 @@ function applyFlightTimingContext(itinerary: ItineraryData, result: FlightSearch
   };
 }
 
+async function searchFlightCandidates(
+  inputs: FlightSearchInput[]
+): Promise<FlightSearchResult | null> {
+  if (inputs.length === 0) return null;
+
+  const batchSize = 3;
+
+  for (let index = 0; index < inputs.length; index += batchSize) {
+    const batch = inputs.slice(index, index + batchSize);
+    const results = await Promise.all(
+      batch.map((input) => searchFlights(input))
+    );
+
+    const liveResults = results.filter(
+      (result) =>
+        result.status === "live" &&
+        result.selected_offer !== null
+    );
+
+    if (liveResults.length > 0) {
+      const rankedResults = liveResults.sort((left, right) => {
+        const leftOffer = left.selected_offer!;
+        const rightOffer = right.selected_offer!;
+
+        const leftScore =
+          leftOffer.total_price_usd +
+          leftOffer.stop_count * 45 +
+          ((leftOffer.total_duration_minutes ?? 0) / 60) * 8;
+
+        const rightScore =
+          rightOffer.total_price_usd +
+          rightOffer.stop_count * 45 +
+          ((rightOffer.total_duration_minutes ?? 0) / 60) * 8;
+
+        return leftScore - rightScore;
+      });
+
+      const selected = rankedResults[0];
+
+      logger.info(
+        {
+          origin: selected.origin,
+          destination: selected.destination,
+          price: selected.selected_offer?.total_price_usd,
+          stops: selected.selected_offer?.stop_count,
+          durationMinutes: selected.selected_offer?.total_duration_minutes,
+          candidatesCompared: liveResults.length,
+        },
+        "Flight route selected"
+      );
+
+      return selected;
+    }
+  }
+
+  return null;
+}
+
 export async function enrichItineraryWithLiveData(
   itinerary: ItineraryData,
   trip: TripData
 ): Promise<ItineraryData> {
-  const flightInput = await buildFlightInput(trip, itinerary);
-  const flightSearch = flightInput
-    ? await searchFlights(flightInput)
-    : noFlightResult(
-        {
-          origin: "unknown",
-          destination: "unknown",
-          departure_date: trip.start_date,
-          return_date: trip.end_date,
-          traveler_count: trip.traveler_count,
-        },
-        "Kalyra could not resolve airport codes for this route. Estimated flight costs are shown."
-      );
+  const flightInputs = await buildFlightInputs(trip, itinerary);
+
+const liveFlightSearch = await searchFlightCandidates(flightInputs);
+
+const flightSearch =
+  liveFlightSearch ??
+  noFlightResult(
+    flightInputs[0] ?? {
+      origin: "unknown",
+      destination: "unknown",
+      departure_date: trip.start_date,
+      return_date: trip.end_date,
+      traveler_count: trip.traveler_count,
+    },
+    flightInputs.length > 0
+      ? "Live flight information was unavailable for the discovered airports. Kalyra is using estimated flight costs for this plan."
+      : "Kalyra could not resolve airport codes for this route. Estimated flight costs are shown."
+  );
 
   let enriched = attachFlightBudget(itinerary, trip, flightSearch);
   const timingContext = applyFlightTimingContext(enriched, flightSearch);

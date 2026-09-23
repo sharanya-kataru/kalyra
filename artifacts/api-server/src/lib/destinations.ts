@@ -1018,6 +1018,69 @@ export const DESTINATIONS: Record<string, DestinationAttributes> = {
   },
 };
 
+export function getDestinationCatalogMatch(
+  query: string,
+  candidate: {
+    city?: string;
+    state?: string;
+    country?: string;
+  },
+): number {
+  const q = query.toLowerCase().trim();
+  const city = candidate.city?.toLowerCase().trim() ?? "";
+  const state = candidate.state?.toLowerCase().trim() ?? "";
+  const country = candidate.country?.toLowerCase().trim() ?? "";
+
+  let bestScore = 0;
+
+  for (const [name, attrs] of Object.entries(DESTINATIONS)) {
+    const cityMatches =
+      city === name ||
+      name.startsWith(q) ||
+      attrs.tags.some(
+        (tag) =>
+          tag === city ||
+          (q.length >= 3 && tag.startsWith(q) && city === name)
+      );
+
+    if (!cityMatches) continue;
+
+    let score = 100;
+
+    // Exact canonical destination search.
+    if (q === name) {
+      score += 100;
+    }
+
+    // Alias search: "firenze" → Florence.
+    if (attrs.tags.includes(q)) {
+      score += 80;
+    }
+
+    // Reward candidates whose region/country agrees with the catalog.
+    if (attrs.tags.includes(state)) {
+      score += 40;
+    }
+
+    if (attrs.tags.includes(country)) {
+      score += 40;
+    }
+
+    // More-specific user input should still matter.
+    if (state && q.includes(state)) {
+      score += 60;
+    }
+
+    if (country && q.includes(country)) {
+      score += 60;
+    }
+
+    bestScore = Math.max(bestScore, score);
+  }
+
+  return bestScore;
+}
+
 /**
  * Look up destination attributes by name.
  * Tries exact match first, then tag substring matching.

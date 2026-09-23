@@ -1,10 +1,39 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useTripContext } from '@/context/TripContext';
 import { useCreateTrip } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
+
+interface LocationSuggestion {
+  formatted?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  country_code?: string;
+  lat: number;
+  lon: number;
+}
+
+function formatLocationSuggestion(suggestion: LocationSuggestion): string {
+  if (suggestion.city) {
+    if (suggestion.country_code?.toLowerCase() === 'us') {
+      return [suggestion.city, suggestion.state, 'United States']
+        .filter(Boolean)
+        .join(', ');
+    }
+
+    return [suggestion.city, suggestion.country]
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  return [suggestion.state, suggestion.country]
+    .filter(Boolean)
+    .join(', ');
+}
+
 const planSteps = [
   { key: 'destination', eyebrow: "Let's start with the shape of it", title: 'Where do you want to go?', hint: "A city, country, region, or somewhere you're dreaming about.", type: 'text', placeholder: 'Italy and Switzerland' },
   { key: 'startingLocation', eyebrow: 'The first step sets the rhythm', title: 'Where are you traveling from?', hint: "We'll use this to find flights and estimate your travel costs.", type: 'text', placeholder: 'New York, NY' },
@@ -115,6 +144,9 @@ export default function Plan() {
   
   const [destination, setDestination] = useState('');
   const [startingLocation, setStartingLocation] = useState('');
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [dates, setDates] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -126,6 +158,7 @@ export default function Plan() {
   const [preferences, setPreferences] = useState<string[]>([]);
 
   const createTrip = useCreateTrip();
+
 
   const current = planSteps[step];
   const getters: Record<string, string> = {
@@ -147,10 +180,58 @@ export default function Plan() {
     pace: setPace,
   };
 
-  const value = getters[current.key] || '';
-  const setValue = setters[current.key];
-  const choices = current.options ?? [];
-  const finish = step === planSteps.length - 1;
+    const value = getters[current.key] || '';
+    const setValue = setters[current.key];
+    const choices = current.options ?? [];
+    const finish = step === planSteps.length - 1;
+
+  useEffect(() => {
+  const isLocationStep =
+    current?.key === 'destination' ||
+    current?.key === 'startingLocation';
+
+  if (!isLocationStep || value.trim().length < 2) {
+    setLocationSuggestions([]);
+    setShowLocationSuggestions(false);
+    return;
+  }
+
+  const controller = new AbortController();
+
+  const timeout = window.setTimeout(async () => {
+    try {
+      setIsLoadingLocations(true);
+
+      const response = await fetch(
+        `/api/locations/suggest?q=${encodeURIComponent(value.trim())}`,
+        { signal: controller.signal }
+      );
+
+      if (!response.ok) {
+        setLocationSuggestions([]);
+        return;
+      }
+
+      const suggestions = (await response.json()) as LocationSuggestion[];
+
+      setLocationSuggestions(suggestions);
+      setShowLocationSuggestions(suggestions.length > 0);
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        setLocationSuggestions([]);
+      }
+    } finally {
+      setIsLoadingLocations(false);
+    }
+  }, 300);
+
+  return () => {
+    window.clearTimeout(timeout);
+    controller.abort();
+  };
+}, [current?.key, value]);
+
+
   const canNext = current.key === 'dates'
     ? Boolean((startDate && endDate) || dates.trim())
     : Boolean(value);
@@ -316,11 +397,20 @@ export default function Plan() {
                   </div>
                 </div>
               ) : current.type === 'text' && (
-                <div className="mt-12">
+                <div className="relative mt-12">
                   <input
                     autoFocus
                     value={value}
-                    onChange={(e) => setValue(e.target.value)}
+                    onChange={(e) => {
+                      setValue(e.target.value);
+
+                      if (
+                        current.key === 'destination' ||
+                        current.key === 'startingLocation'
+                      ) {
+                        setShowLocationSuggestions(true);
+                      }
+                    }}
                     onKeyDown={(e) => e.key === 'Enter' && canNext && handleNext()}
                     className="w-full border-b-2 border-[#a9b5ad] bg-transparent py-4 text-2xl outline-none transition placeholder:text-[#a9b5ad] focus:border-[#203b47]"
                     placeholder={
@@ -332,6 +422,37 @@ export default function Plan() {
                     }
                     data-testid={`input-plan-${current.key}`}
                   />
+                  {(current.key === 'destination' ||
+                    current.key === 'startingLocation') &&
+                    showLocationSuggestions && (
+                      <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-xl border border-[#d7d0c2] bg-[#f8f6ef] shadow-lg">
+                        {isLoadingLocations && (
+                          <div className="px-4 py-3 text-sm text-[#76827d]">
+                            Finding places...
+                          </div>
+                        )}
+
+                        {!isLoadingLocations &&
+                          locationSuggestions.map((suggestion, index) => (
+                            <button
+                              key={`${suggestion.formatted}-${index}`}
+                              type="button"
+                              onClick={() => {
+                                const locationLabel = formatLocationSuggestion(suggestion);
+
+                                if (!locationLabel) return;
+
+                                setValue(locationLabel);
+                                setLocationSuggestions([]);
+                                setShowLocationSuggestions(false);
+                              }}
+                              className="block w-full border-b border-[#e2ddd2] px-4 py-3 text-left text-sm text-[#203b47] transition last:border-b-0 hover:bg-[#e7e5d9]"
+                            >
+                              {formatLocationSuggestion(suggestion)}
+                            </button>
+                          ))}
+                      </div>
+                    )}
                 </div>
               )}
               {current.type === 'choice' && (

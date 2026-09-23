@@ -6,6 +6,7 @@
  */
 import { logger } from "./logger";
 import { liveSource } from "./sources";
+import { getDestinationCatalogMatch } from "./destinations";
 
 export interface PlaceResult {
   name: string;
@@ -163,6 +164,296 @@ export interface ResolvedLocation {
 }
 
 const locationCache: Record<string, ResolvedLocation> = {};
+
+export async function resolveLocationCandidates(
+    query: string,
+    limit = 5
+  ): Promise<ResolvedLocation[]> {
+    const apiKey = process.env.GEOAPIFY_API_KEY;
+
+    if (!apiKey) {
+      logger.warn(
+        { provider: "Geoapify", requestType: "geocode_candidates" },
+        "Geoapify API key is not configured"
+      );
+      return [];
+    }
+
+    try {
+      const url = new URL("https://api.geoapify.com/v1/geocode/search");
+      url.searchParams.set("text", query);
+      url.searchParams.set("limit", String(Math.min(Math.max(limit, 1), 10)));
+      url.searchParams.set("apiKey", apiKey);
+
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(6_000),
+      });
+
+      if (!response.ok) {
+        logger.warn(
+          {
+            provider: "Geoapify",
+            requestType: "geocode_candidates",
+            statusCode: response.status,
+          },
+          "Geoapify candidate geocoding request failed"
+        );
+        return [];
+      }
+
+      const body = (await response.json()) as {
+        features?: Array<{
+          geometry?: { coordinates?: [number, number] };
+          properties?: {
+            formatted?: string;
+            city?: string;
+            state?: string;
+            country?: string;
+            country_code?: string;
+          };
+        }>;
+      };
+
+      const candidates: ResolvedLocation[] = [];
+
+      for (const feature of body.features ?? []) {
+        const coordinates = feature.geometry?.coordinates;
+        const properties = feature.properties;
+
+        if (!coordinates || !properties) continue;
+
+        const [lon, lat] = coordinates;
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+
+        candidates.push({
+          query,
+          formatted: properties.formatted,
+          city: properties.city,
+          state: properties.state,
+          country: properties.country,
+          country_code: properties.country_code,
+          lat,
+          lon,
+          source: "Geoapify",
+        });
+      }
+
+      logger.info(
+        {
+          provider: "Geoapify",
+          requestType: "geocode_candidates",
+          resultCount: candidates.length,
+        },
+        "Location candidate search completed"
+      );
+
+      return candidates;
+    } catch (error) {
+      logger.warn(
+        {
+          provider: "Geoapify",
+          requestType: "geocode_candidates",
+          error,
+        },
+        "Geoapify candidate geocoding failed"
+      );
+
+      return [];
+    }
+  }
+
+  export async function autocompleteLocations(
+  query: string,
+  limit = 5
+): Promise<ResolvedLocation[]> {
+  const apiKey = process.env.GEOAPIFY_API_KEY;
+  const trimmed = query.trim();
+
+  if (!apiKey || trimmed.length < 2) {
+    return [];
+  }
+
+  try {
+    const url = new URL("https://api.geoapify.com/v1/geocode/autocomplete");
+
+    // Fetch more than we display so Kalyra can rank and filter the candidates.
+    url.searchParams.set("text", trimmed);
+    url.searchParams.set("limit", "20");
+    url.searchParams.set("lang", "en");
+    url.searchParams.set("apiKey", apiKey);
+
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(6_000),
+    });
+
+    if (!response.ok) {
+      logger.warn(
+        {
+          provider: "Geoapify",
+          requestType: "location_autocomplete",
+          statusCode: response.status,
+        },
+        "Geoapify autocomplete request failed"
+      );
+      return [];
+    }
+
+    const body = (await response.json()) as {
+      features?: Array<{
+        geometry?: { coordinates?: [number, number] };
+        properties?: {
+          formatted?: string;
+          city?: string;
+          state?: string;
+          country?: string;
+          country_code?: string;
+          result_type?: string;
+        };
+      }>;
+    };
+
+    const candidates: Array<{
+      location: ResolvedLocation;
+      catalogScore: number;
+      originalIndex: number;
+    }> = [];
+
+    for (const [originalIndex, feature] of (body.features ?? []).entries()) {
+      const coordinates = feature.geometry?.coordinates;
+      const properties = feature.properties;
+
+      if (!coordinates || !properties) continue;
+
+      const [lon, lat] = coordinates;
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+
+      // Kalyra is searching for travel destinations, not addresses or
+      // administrative records.
+      const allowedResultTypes = new Set([
+        "city",
+        "town",
+        "village",
+        "municipality",
+        "county",
+        "state",
+        "country",
+      ]);
+
+      if (
+        properties.result_type &&
+        !allowedResultTypes.has(properties.result_type)
+      ) {
+        continue;
+      }
+
+      const location: ResolvedLocation = {
+        query: trimmed,
+        formatted: properties.formatted,
+        city: properties.city,
+        state: properties.state,
+        country: properties.country,
+        country_code: properties.country_code,
+        lat,
+        lon,
+        source: "Geoapify",
+      };
+
+      candidates.push({
+        location,
+        catalogScore: getDestinationCatalogMatch(trimmed, location),
+        originalIndex,
+      });
+    }
+
+    // Prefer destinations already understood by Kalyra, while preserving
+    // Geoapify's ranking for destinations outside the catalog.
+    candidates.sort((a, b) => {
+      if (b.catalogScore !== a.catalogScore) {
+        return b.catalogScore - a.catalogScore;
+      }
+
+      return a.originalIndex - b.originalIndex;
+    });
+
+    const normalizedQuery = trimmed.toLowerCase().trim();
+    const queryWords = normalizedQuery.split(/\s+/);
+
+    const topCatalogScore = candidates[0]?.catalogScore ?? 0;
+
+    // A simple destination-name search such as "Florence" or "Milan" that
+    // strongly matches Kalyra's catalog should resolve to that travel
+    // destination rather than every geographic place sharing the name.
+    if (
+      queryWords.length === 1 &&
+      normalizedQuery.length >= 3 &&
+      topCatalogScore >= 200
+    ) {
+      return [candidates[0].location];
+    }
+
+        // Deduplicate geographic variants of the same city.
+    // For travel search, "Milan, LOM, Italy" and "Milan, Italy" represent
+    // the same destination.
+    const seen = new Set<string>();
+    const results: ResolvedLocation[] = [];
+
+    for (const candidate of candidates) {
+      const location = candidate.location;
+      const candidateName =
+        location.city?.toLowerCase().trim() ??
+        location.formatted?.split(",")[0]?.toLowerCase().trim() ??
+        "";
+
+      const exactNameMatch = candidateName === normalizedQuery;
+      const startsWithQuery = candidateName.startsWith(normalizedQuery);
+
+      if (!exactNameMatch && !startsWithQuery) {
+        continue;
+      }
+
+      const dedupeKey = [
+        location.city?.toLowerCase().trim() ?? "",
+        location.state?.toLowerCase().trim() ?? "",
+        location.country_code?.toLowerCase().trim() ?? "",
+      ].join("|");
+
+      // If Geoapify omitted state on one representation of the same city,
+      // also compare city + country.
+      const broadKey = [
+        location.city?.toLowerCase().trim() ?? "",
+        location.country_code?.toLowerCase().trim() ?? "",
+      ].join("|");
+
+      if (seen.has(dedupeKey) || seen.has(broadKey)) {
+        continue;
+      }
+
+      seen.add(dedupeKey);
+      seen.add(broadKey);
+
+      results.push(location);
+
+      if (results.length >= limit) {
+        break;
+      }
+    }
+
+    return results;
+  } catch (error) {
+    logger.warn(
+      {
+        provider: "Geoapify",
+        requestType: "location_autocomplete",
+        error,
+      },
+      "Geoapify autocomplete failed"
+    );
+
+    return [];
+  }
+}
 
 export async function resolveLocation(query: string): Promise<ResolvedLocation | null> {
   const apiKey = process.env.GEOAPIFY_API_KEY;

@@ -385,10 +385,15 @@ function computePacing(route: RouteStop[]): SubScore {
 
   const issues = details.filter((d) => d.includes("brief") || d.includes("long"));
   let explanation: string;
+
   if (issues.length === 0) {
     explanation = `All stops are within their ideal stay range. Great pacing.`;
+  } else if (score >= 85) {
+    explanation = `Strong overall pacing, with one small tradeoff: ${issues[0]}.${issues.length > 1 ? ` +${issues.length - 1} more.` : ""}`;
+  } else if (score >= 70) {
+    explanation = `Generally balanced pacing, with some room to improve: ${issues.slice(0, 2).join("; ")}.${issues.length > 2 ? ` +${issues.length - 2} more.` : ""}`;
   } else {
-    explanation = `Pacing issues: ${issues.slice(0, 2).join("; ")}.${issues.length > 2 ? ` +${issues.length - 2} more.` : ""}`;
+    explanation = `Pacing needs adjustment: ${issues.slice(0, 2).join("; ")}.${issues.length > 2 ? ` +${issues.length - 2} more.` : ""}`;
   }
 
   return subScore(score, explanation);
