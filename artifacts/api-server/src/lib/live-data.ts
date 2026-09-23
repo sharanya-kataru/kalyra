@@ -1,8 +1,10 @@
 import type { ItineraryData, TripData } from "./ai";
 import { searchFlights, type FlightSearchInput, type FlightSearchResult } from "./flights";
+import { discoverNearbyAirports, resolveLocation } from "./places";
 import { getWeatherForecast, type WeatherSearchInput } from "./weather";
 import { fallbackSource } from "./sources";
 import { calculateBudgetSummary, sanitizeAmount } from "./trip-utils";
+import { logger } from "./logger";
 
 const AIRPORT_ALIASES: Array<{ terms: string[]; code: string }> = [
   { terms: ["new york", "nyc", "jfk"], code: "JFK" },
@@ -77,6 +79,44 @@ export function resolveAirportCode(value: string, destination = false): string |
   return lookupCode(value, destination ? DESTINATION_AIRPORTS : AIRPORT_ALIASES);
 }
 
+function normalizeLocationWithContext(location: string, context: string): string {
+  const locTrimmed = location.trim().toLowerCase();
+  const ctxTrimmed = context.trim().toLowerCase();
+
+  // If location and context are identical, return location as-is (avoid duplication).
+  if (locTrimmed === ctxTrimmed) return location.trim();
+
+  // If context already ends with location (e.g., "Florence, Italy" contains "Florence"),
+  // return context as-is to preserve the full geographic context.
+  if (ctxTrimmed.endsWith(locTrimmed) || ctxTrimmed.includes(locTrimmed + ",")) {
+    return context.trim();
+  }
+
+  // If location is already more specific than just the city name (e.g., "Florence, Italy"),
+  // return location as-is (it already has context).
+  if (location.trim().includes(",")) {
+    return location.trim();
+  }
+
+  // Otherwise, append location to context to provide geographic context.
+  return `${location.trim()}, ${context.trim()}`;
+}
+
+async function resolveDynamicAirportIata(locationString: string): Promise<string | null> {
+  const trimmed = locationString.trim();
+  if (!trimmed) return null;
+
+  try {
+    const resolved = await resolveLocation(trimmed);
+    if (!resolved) return null;
+
+    const airports = await discoverNearbyAirports(resolved);
+    return airports.find((airport) => Boolean(airport.iata))?.iata ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function resolveDestinationCoordinates(location: string): { latitude: number; longitude: number } | null {
   const normalized = location.toLowerCase().trim();
   return DESTINATION_COORDINATES.find((entry) => entry.terms.some((term) => normalized.includes(term))) ?? null;
@@ -96,11 +136,48 @@ function noFlightResult(input: FlightSearchInput, message: string): FlightSearch
   };
 }
 
-function buildFlightInput(trip: TripData, itinerary: ItineraryData): FlightSearchInput | null {
-  const origin = resolveAirportCode(trip.starting_location);
+async function buildFlightInput(trip: TripData, itinerary: ItineraryData): Promise<FlightSearchInput | null> {
+  const origin = (await resolveDynamicAirportIata(trip.starting_location)) ?? resolveAirportCode(trip.starting_location);
+
   const firstDestination = itinerary.route[0]?.location ?? trip.destination;
-  const destination = resolveAirportCode(firstDestination, true) ?? resolveAirportCode(trip.destination, true);
+
+  // Provide geographic context when resolving the first itinerary destination.
+  // If firstDestination is just a city name (e.g., "Florence"), append trip.destination context
+  // to disambiguate (e.g., "Florence, Italy"). This ensures Geoapify resolves to the correct location.
+  const destinationWithContext = normalizeLocationWithContext(firstDestination, trip.destination);
+  logger.info(
+    {
+      firstDestination,
+      tripDestination: trip.destination,
+      destinationWithContext,
+    },
+    "Destination context resolved"
+  );
+
+  let destination: string | null = await resolveDynamicAirportIata(destinationWithContext);
+  if (!destination) {
+    destination = resolveAirportCode(firstDestination, true);
+  }
+  if (!destination && firstDestination !== trip.destination) {
+    destination = (await resolveDynamicAirportIata(trip.destination)) ?? resolveAirportCode(trip.destination, true);
+  }
+  if (!destination) {
+    destination = resolveAirportCode(trip.destination, true);
+  }
+
   if (!origin || !destination) return null;
+
+  logger.info(
+    {
+      origin,
+      destination,
+      departureDate: trip.start_date,
+      returnDate: trip.end_date,
+      requestType: "flight_input",
+    },
+    "Flight input resolved"
+  );
+
   return {
     origin,
     destination,
@@ -191,7 +268,7 @@ export async function enrichItineraryWithLiveData(
   itinerary: ItineraryData,
   trip: TripData
 ): Promise<ItineraryData> {
-  const flightInput = buildFlightInput(trip, itinerary);
+  const flightInput = await buildFlightInput(trip, itinerary);
   const flightSearch = flightInput
     ? await searchFlights(flightInput)
     : noFlightResult(

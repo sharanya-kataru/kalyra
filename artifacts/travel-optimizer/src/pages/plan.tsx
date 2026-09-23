@@ -6,8 +6,8 @@ import { useTripContext } from '@/context/TripContext';
 import { useCreateTrip } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
 const planSteps = [
-  { key: 'destination', eyebrow: "Let's start with the shape of it", title: 'Where are you drawn to?', hint: "Name a country, region, or a loose idea. We'll help find the through-line.", type: 'text' },
-  { key: 'startingLocation', eyebrow: 'The first step sets the rhythm', title: 'Where will you begin?', hint: "A city, an airport, or wherever you'll land.", type: 'text' },
+  { key: 'destination', eyebrow: "Let's start with the shape of it", title: 'Where do you want to go?', hint: "A city, country, region, or somewhere you're dreaming about.", type: 'text', placeholder: 'Italy and Switzerland' },
+  { key: 'startingLocation', eyebrow: 'The first step sets the rhythm', title: 'Where are you traveling from?', hint: "We'll use this to find flights and estimate your travel costs.", type: 'text', placeholder: 'New York, NY' },
   { key: 'dates', eyebrow: 'Timing changes everything', title: 'When are you going?', hint: 'Even a rough window helps us read the season.', type: 'text' },
   { key: 'travelerCount', eyebrow: 'A route should fit the company', title: "Who's coming along?", hint: 'This changes the pace, the stays, and the shape of your days.', type: 'choice', options: ['Just me', 'A partner', 'Friends', 'Family'] },
   { key: 'budget', eyebrow: 'Make room for what matters', title: 'What feels comfortable?', hint: 'A total trip budget in USD, excluding international flights.', type: 'choice', options: ['$900–1,400', '$1,400–1,800', '$1,800–2,400', '$2,400+'] },
