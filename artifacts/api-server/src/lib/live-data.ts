@@ -15,27 +15,51 @@ import { calculateBudgetSummary, sanitizeAmount } from "./trip-utils";
 import { logger } from "./logger";
 import { getRouteCandidatePool } from "./destinations";
 
-function normalizeLocationWithContext(location: string, context: string): string {
-  const locTrimmed = location.trim().toLowerCase();
-  const ctxTrimmed = context.trim().toLowerCase();
+function normalizeLocationWithContext(
+  location: string,
+  context: string
+): string {
+  const trimmedLocation = location.trim();
+  const trimmedContext = context.trim();
 
-  // If location and context are identical, return location as-is (avoid duplication).
-  if (locTrimmed === ctxTrimmed) return location.trim();
+  if (!trimmedLocation) return trimmedContext;
+  if (!trimmedContext) return trimmedLocation;
 
-  // If context already ends with location (e.g., "Florence, Italy" contains "Florence"),
-  // return context as-is to preserve the full geographic context.
-  if (ctxTrimmed.endsWith(locTrimmed) || ctxTrimmed.includes(locTrimmed + ",")) {
-    return context.trim();
+  const locationKey = trimmedLocation.toLowerCase();
+  const contextKey = trimmedContext.toLowerCase();
+
+  // Already fully contextualized.
+  if (trimmedLocation.includes(",")) {
+    return trimmedLocation;
   }
 
-  // If location is already more specific than just the city name (e.g., "Florence, Italy"),
-  // return location as-is (it already has context).
-  if (location.trim().includes(",")) {
-    return location.trim();
+  if (locationKey === contextKey) {
+    return trimmedLocation;
   }
 
-  // Otherwise, append location to context to provide geographic context.
-  return `${location.trim()}, ${context.trim()}`;
+  // Prefer the country attached to this specific destination candidate.
+  // This keeps multi-country trips geographically unambiguous without
+  // hardcoding individual destinations here.
+  const routeCandidates = getRouteCandidatePool(trimmedContext);
+
+  const matchingCandidate = routeCandidates.find(
+    (candidate) => candidate.name.trim().toLowerCase() === locationKey
+  );
+
+  if (matchingCandidate?.country) {
+    return `${trimmedLocation}, ${matchingCandidate.country}`;
+  }
+
+  // Preserve a context that already identifies this location.
+  if (
+    contextKey.endsWith(locationKey) ||
+    contextKey.includes(`${locationKey},`)
+  ) {
+    return trimmedContext;
+  }
+
+  // Generic fallback for destinations not represented in the candidate pool.
+  return `${trimmedLocation}, ${trimmedContext}`;
 }
 
 
@@ -113,8 +137,8 @@ async function buildFlightInputs(
   );
 
   let [origins, destinations] = await Promise.all([
-    resolveDynamicAirportIatas(trip.starting_location, 3),
-    resolveDynamicAirportIatas(destinationWithContext, 2),
+    resolveDynamicAirportIatas(trip.starting_location, 5),
+    resolveDynamicAirportIatas(destinationWithContext, 4),
   ]);
 
   if (origins.length === 0 || destinations.length === 0) {
@@ -132,18 +156,33 @@ async function buildFlightInputs(
     "Flight inputs resolved"
   );
 
-  return destinations.flatMap((destination) =>
-    origins.map((origin) => ({
-      origin,
-      destination,
-      departure_date: trip.start_date,
-      return_date: trip.end_date,
-      traveler_count: trip.traveler_count,
-      cabin_class: "economy" as const,
-      market: "US",
-      currency: "USD" as const,
-    }))
-  );
+  const inputs: FlightSearchInput[] = [];
+
+  const maxRank = Math.max(origins.length, destinations.length - 1);
+
+  for (let rank = 0; rank < maxRank; rank++) {
+    for (let destinationIndex = 0; destinationIndex <= rank; destinationIndex++) {
+      const originIndex = rank - destinationIndex;
+
+      const origin = origins[originIndex];
+      const destination = destinations[destinationIndex];
+
+      if (!origin || !destination) continue;
+
+      inputs.push({
+        origin,
+        destination,
+        departure_date: trip.start_date,
+        return_date: trip.end_date,
+        traveler_count: trip.traveler_count,
+        cabin_class: "economy",
+        market: "US",
+        currency: "USD",
+      });
+    }
+  }
+
+  return inputs;
 }
 
 function attachFlightBudget(itinerary: ItineraryData, trip: TripData, result: FlightSearchResult): ItineraryData {
@@ -227,78 +266,72 @@ async function searchFlightCandidates(
 ): Promise<FlightSearchResult | null> {
   if (inputs.length === 0) return null;
 
-  const batchSize = 3;
+  const liveResults: FlightSearchResult[] = [];
   let bestEstimatedResult: FlightSearchResult | null = null;
 
-  for (let index = 0; index < inputs.length; index += batchSize) {
-    const batch = inputs.slice(index, index + batchSize);
-    const results = await Promise.all(
-      batch.map((input) => searchFlights(input, false))
-    );
+  const results = await Promise.all(
+    inputs.map((input) => searchFlights(input, false))
+  );
 
-    const liveResults = results.filter(
-      (result) =>
+  for (const result of results) {
+      if (
         result.status === "live" &&
         result.selected_offer !== null
-    );
+      ) {
+        liveResults.push(result);
+        continue;
+      }
 
-    const estimatedResults = results.filter(
-      (result) =>
+      if (
         result.status === "unavailable" &&
         result.selected_offer !== null
-    );
-
-    for (const estimated of estimatedResults) {
-      if (
-        !bestEstimatedResult ||
-        estimated.selected_offer!.total_price_usd <
-          bestEstimatedResult.selected_offer!.total_price_usd
       ) {
-        bestEstimatedResult = estimated;
+        if (
+          !bestEstimatedResult ||
+          result.selected_offer.total_price_usd <
+            bestEstimatedResult.selected_offer!.total_price_usd
+        ) {
+          bestEstimatedResult = result;
+        }
       }
     }
 
-    if (liveResults.length > 0) {
-      const rankedResults = liveResults.sort((left, right) => {
-        const leftOffer = left.selected_offer!;
-        const rightOffer = right.selected_offer!;
+  if (liveResults.length > 0) {
+    const rankedResults = liveResults.sort((left, right) => {
+      const leftOffer = left.selected_offer!;
+      const rightOffer = right.selected_offer!;
 
-        const leftScore =
-          leftOffer.total_price_usd +
-          leftOffer.stop_count * 45 +
-          ((leftOffer.total_duration_minutes ?? 0) / 60) * 8;
+      const leftScore =
+        leftOffer.total_price_usd +
+        leftOffer.stop_count * 45 +
+        ((leftOffer.total_duration_minutes ?? 0) / 60) * 8;
 
-        const rightScore =
-          rightOffer.total_price_usd +
-          rightOffer.stop_count * 45 +
-          ((rightOffer.total_duration_minutes ?? 0) / 60) * 8;
+      const rightScore =
+        rightOffer.total_price_usd +
+        rightOffer.stop_count * 45 +
+        ((rightOffer.total_duration_minutes ?? 0) / 60) * 8;
 
-        return leftScore - rightScore;
-      });
+      return leftScore - rightScore;
+    });
 
-      const selected = rankedResults[0];
+    const selected = rankedResults[0];
 
-      logger.info(
-        {
-          origin: selected.origin,
-          destination: selected.destination,
-          price: selected.selected_offer?.total_price_usd,
-          stops: selected.selected_offer?.stop_count,
-          durationMinutes: selected.selected_offer?.total_duration_minutes,
-          candidatesCompared: liveResults.length,
-        },
-        "Flight route selected"
-      );
+    logger.info(
+      {
+        origin: selected.origin,
+        destination: selected.destination,
+        price: selected.selected_offer?.total_price_usd,
+        stops: selected.selected_offer?.stop_count,
+        durationMinutes: selected.selected_offer?.total_duration_minutes,
+        candidatesCompared: liveResults.length,
+      },
+      "Flight route selected"
+    );
 
-      return selected;
-    }
+    return selected;
   }
 
-    const fallbackInput = inputs[0];
-
-  if (!fallbackInput) {
-    return bestEstimatedResult;
-  }
+  const fallbackInput = inputs[0];
 
   const nearbyResult = await searchFlights(fallbackInput, true);
 

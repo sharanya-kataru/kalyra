@@ -662,7 +662,7 @@ async function searchAirportRadius(
   url.searchParams.set("categories", "airport");
   url.searchParams.set("filter", `circle:${location.lon},${location.lat},${radiusMeters}`);
   url.searchParams.set("bias", `proximity:${location.lon},${location.lat}`);
-  url.searchParams.set("limit", "10");
+  url.searchParams.set("limit", "50");
   url.searchParams.set("apiKey", apiKey);
 
   try {
@@ -824,12 +824,13 @@ export async function discoverNearbyAirports(location: ResolvedLocation): Promis
   const radiusSearches = [250_000, 500_000];
 
   for (const radiusMeters of radiusSearches) {
-    const nextCandidates = await searchAirportRadius(location, apiKey, radiusMeters, seen, candidates);
-    const validIataCandidates = nextCandidates.filter((candidate) => Boolean(candidate.iata));
-
-    if (radiusMeters === 500_000) {
-      break;
-    }
+    await searchAirportRadius(
+      location,
+      apiKey,
+      radiusMeters,
+      seen,
+      candidates
+    );
   }
 
   const sorted = [...candidates]
