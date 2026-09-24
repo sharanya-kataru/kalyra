@@ -4,7 +4,11 @@ import {
   type FlightSearchInput,
   type FlightSearchResult,
 } from "./flights";
-import { discoverNearbyAirports, resolveLocation } from "./places";
+import {
+  discoverNearbyAirports,
+  getPlacesProvider,
+  resolveLocation,
+} from "./places";
 import { getWeatherForecast, type WeatherSearchInput } from "./weather";
 import { fallbackSource } from "./sources";
 import { calculateBudgetSummary, sanitizeAmount } from "./trip-utils";
@@ -315,7 +319,11 @@ export async function enrichItineraryWithLiveData(
   const weatherPromise = Promise.all(
     [...new Set(itinerary.daily_itinerary.map((day) => day.location))]
       .map(async (location) => {
-        const resolved = await resolveLocation(location);
+        const locationWithContext = normalizeLocationWithContext(
+          location,
+          trip.destination
+        );
+        const resolved = await resolveLocation(locationWithContext);
 
         if (!resolved) return null;
 
@@ -336,6 +344,35 @@ export async function enrichItineraryWithLiveData(
         Awaited<ReturnType<typeof getWeatherForecast>>
       > => result !== null
     )
+);
+
+const placesProvider = getPlacesProvider();
+
+const restaurantEntries = placesProvider
+  ? await Promise.all(
+      [...new Set(itinerary.daily_itinerary.map((day) => day.location))].map(
+        async (location) => {
+          const locationWithContext = normalizeLocationWithContext(
+            location,
+            trip.destination
+          );
+
+          const restaurants = await placesProvider.search_restaurants(
+            locationWithContext,
+            10
+          );
+
+          return [location, restaurants] as const;
+        }
+      )
+    )
+  : [];
+
+const restaurantsByLocation = new Map(
+  restaurantEntries.map(([location, restaurants]) => [
+    location,
+    restaurants.slice(0, 3).map((restaurant) => restaurant.name),
+  ])
 );
 
 const flightInputs = await buildFlightInputs(trip, itinerary);
@@ -366,12 +403,19 @@ const weatherResults = await weatherPromise;
   const weatherByDay = new Map(weather.map((summary) => [`${summary.location}|${summary.date}`, summary]));
   enriched = {
     ...enriched,
-    daily_itinerary: enriched.daily_itinerary.map((day) => ({
-      ...day,
-      ...(weatherByDay.has(`${day.location}|${day.date}`)
-        ? { weather: weatherByDay.get(`${day.location}|${day.date}`) }
-        : {}),
-    })),
+    daily_itinerary: enriched.daily_itinerary.map((day) => {
+      const restaurants = restaurantsByLocation.get(day.location) ?? [];
+
+      return {
+        ...day,
+        ...(restaurants.length > 0
+          ? { food_recommendations: restaurants }
+          : {}),
+        ...(weatherByDay.has(`${day.location}|${day.date}`)
+          ? { weather: weatherByDay.get(`${day.location}|${day.date}`) }
+          : {}),
+      };
+    }),
     live_data: {
       flight_search: flightSearch,
       weather,
