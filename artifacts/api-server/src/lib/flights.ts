@@ -60,7 +60,10 @@ export interface FlightSearchResult {
 }
 
 export interface FlightProvider {
-  search_flights(input: FlightSearchInput): Promise<FlightSearchResult>;
+  search_flights(
+    input: FlightSearchInput,
+    allowNearbyFallback?: boolean,
+  ): Promise<FlightSearchResult>;
 }
 
 type IgnavSegment = {
@@ -463,7 +466,7 @@ export function getFlightProvider(): FlightProvider | null {
 export async function searchFlights(input: FlightSearchInput, allowNearbyFallback = true): Promise<FlightSearchResult> {
   const provider = getFlightProvider();
   if (!provider) return emptyResult(input, "Live flight information is not configured. Kalyra is using estimated flight costs for this plan.");
-  return provider.search_flights(input);
+  return provider.search_flights(input, allowNearbyFallback);
 }
 
 export async function searchAirports(
