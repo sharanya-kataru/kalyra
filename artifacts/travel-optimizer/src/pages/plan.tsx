@@ -38,7 +38,7 @@ const planSteps = [
   { key: 'destination', eyebrow: "Let's start with the shape of it", title: 'Where do you want to go?', hint: "A city, country, region, or somewhere you're dreaming about.", type: 'text', placeholder: 'Italy and Switzerland' },
   { key: 'startingLocation', eyebrow: 'The first step sets the rhythm', title: 'Where are you traveling from?', hint: "We'll use this to find flights and estimate your travel costs.", type: 'text', placeholder: 'New York, NY' },
   { key: 'dates', eyebrow: 'Timing changes everything', title: 'When are you going?', hint: 'Even a rough window helps us read the season.', type: 'text' },
-  { key: 'travelerCount', eyebrow: 'A route should fit the company', title: "Who's coming along?", hint: 'This changes the pace, the stays, and the shape of your days.', type: 'choice', options: ['Just me', 'A partner', 'Friends', 'Family'] },
+  { key: 'travelerCount', eyebrow: 'A route should fit the company', title: 'How many people are traveling?', hint: "We'll use this to estimate flights, stays, food, and your total trip cost.", type: 'choice', options: ['1', '2', '3', '4', '5', '6', '7', '8'] },
   { key: 'budget', eyebrow: 'Make room for what matters', title: 'What feels comfortable?', hint: 'A total trip budget in USD, excluding international flights.', type: 'choice', options: ['$900–1,400', '$1,400–1,800', '$1,800–2,400', '$2,400+'] },
   { key: 'budgetPreference', eyebrow: "There's no wrong answer", title: 'Where should we spend well?', hint: "We'll use this to make the right trade-offs.", type: 'choice', options: ['Keep it lean', 'Balance', 'A few beautiful splurges'] },
   { key: 'pace', eyebrow: 'The most important detail', title: 'How should it feel?', hint: 'Think about how you want to come home feeling.', type: 'choice', options: ['Unhurried', 'A little of everything', 'See it all'] },
@@ -258,13 +258,7 @@ export default function Plan() {
         : Number(budgetParts[0]) || 2000;
 
       // Parse traveler count
-      const travelerCountMap: Record<string, number> = {
-        'Just me': 1,
-        'A partner': 2,
-        'Friends': 4,
-        'Family': 4,
-      };
-      const travelerCountNum = travelerCountMap[travelerCount] || 1;
+      const travelerCountNum = Math.max(1, Number(travelerCount) || 1);
 
       const planDataPayload = {
         destination,

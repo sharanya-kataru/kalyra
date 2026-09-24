@@ -297,7 +297,8 @@ export default function Trip() {
   const [modificationHistory, setModificationHistory] = useState<ModificationHistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
 
-  const { tripId, itinerary, setItinerary } = useTripContext();
+  const { tripId, itinerary, setItinerary, planData } = useTripContext();
+  const travelerCount = Math.max(1, Number(planData?.travelerCount) || 1);
   const { toast } = useToast();
   const modifyItinerary = useModifyItinerary();
   const refreshLiveData = useRefreshLiveData();
@@ -562,8 +563,15 @@ export default function Trip() {
               </div>
               <div className="rounded-2xl bg-[#203b47] p-6 text-[#f5f0e6] sm:p-7">
                 <Wallet size={19} className="text-[#e8bc5a]" />
-                <p className="mt-10 text-xs text-[#aebeb5]">Estimated on-the-ground</p>
-                <p className="mt-2 font-display text-4xl">{formatUsd(itinerary.budget_summary.total_estimated)}</p>
+                <p className="mt-10 text-xs text-[#aebeb5]">Estimated trip cost</p>
+                <p className="mt-2 font-display text-4xl">
+                  {formatUsd(itinerary.budget_summary.total_estimated)}
+                </p>
+                <p className="mt-2 text-xs text-[#c0cec7]">
+                  {formatUsd(itinerary.budget_summary.total_estimated / travelerCount)} per person
+                  {' · '}
+                  {travelerCount} traveler{travelerCount === 1 ? '' : 's'}
+                </p>
                 <div className="mt-7 border-t border-white/15 pt-4 text-xs text-[#c0cec7]">
                   {itinerary.budget_breakdown.slice(0, 3).map((item) => (
                     <div key={item.category} className="flex justify-between py-1">
@@ -580,6 +588,10 @@ export default function Trip() {
                 data={itinerary.live_data}
                 onRefresh={handleRefreshLiveData}
                 refreshing={refreshLiveData.isPending}
+                travelerCount={travelerCount}
+                estimatedFlightCost={
+                  itinerary.budget_breakdown.find((item) => item.category === 'Flights')?.estimated_amount ?? 0
+                }
               />
             )}
 
@@ -940,10 +952,14 @@ function LiveTravelData({
   data,
   onRefresh,
   refreshing,
+  travelerCount,
+  estimatedFlightCost,
 }: {
   data: any;
   onRefresh: () => void;
   refreshing: boolean;
+  travelerCount: number;
+  estimatedFlightCost: number;
 }) {
   const flight = data.flight_search;
   const selected = flight?.selected_offer;
@@ -998,7 +1014,12 @@ function LiveTravelData({
             <>
               <div className="mt-7 flex items-end justify-between gap-3">
                 <div>
-                  <p className="font-display text-4xl">{formatUsd(selected.total_price_usd)}</p>
+                  <p className="font-display text-4xl">{formatUsd(selected.total_price_usd)} total</p>
+                  <p className="mt-1 text-xs text-[#65706d]">
+                    {formatUsd(selected.total_price_usd / travelerCount)} per person
+                    {' · '}
+                    {travelerCount} traveler{travelerCount === 1 ? '' : 's'}
+                  </p>
                   <p className="mt-1 text-xs text-[#65706d]">
                     {flight.origin} → {flight.destination} · {selected.carriers.join(' + ') || 'Selected carriers'}
                   </p>
@@ -1051,9 +1072,20 @@ function LiveTravelData({
               )}
             </>
           ) : (
-            <p className="mt-7 text-sm leading-6 text-[#65706d]">
-              {flight?.message ?? 'Live fares are unavailable; the budget keeps a clearly labeled estimate.'}
-            </p>
+            <div className="mt-7">
+              <p className="font-display text-4xl">
+                {formatUsd(estimatedFlightCost)} estimated total
+              </p>
+              <p className="mt-1 text-xs text-[#65706d]">
+                {formatUsd(estimatedFlightCost / travelerCount)} per person
+                {' · '}
+                {travelerCount} traveler{travelerCount === 1 ? '' : 's'}
+              </p>
+              <p className="mt-4 text-xs leading-5 text-[#65706d]">
+                {flight?.message ??
+                  'Live fares are unavailable, so Kalyra is using this estimated flight cost in your trip budget.'}
+              </p>
+            </div>
           )}
         </div>
 
