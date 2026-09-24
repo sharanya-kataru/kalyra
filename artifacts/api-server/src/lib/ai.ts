@@ -347,7 +347,7 @@ function normalizeDailyItinerary(
     const evening = activityPart(
       rich.evening ?? legacyActivities.evening,
       "Relaxed dinner and an easy evening",
-      "Leave space to follow a local recommendation.",
+      "Enjoy dinner at an unhurried pace.",
       dailyFallbackCost
     );
     const transportation = (rich.transportation ?? {}) as Record<string, unknown>;
@@ -372,13 +372,16 @@ function normalizeDailyItinerary(
         mode: String(transportation.mode ?? legacyActivities.transport ?? "Walk and local transit"),
         details: String(
           transportation.details ??
-            (legacyActivities.transport
-              ? "Follow the planned route for this leg."
-              : "Use local transit and walk between nearby stops.")
+            (index === 0
+              ? "Allow time to reach your accommodation and settle in."
+              : transferDay
+              ? "Allow time to travel between bases and settle into your accommodation."
+              : index === totalDays - 1
+              ? "Leave time to collect your belongings and reach your departure point."
+              : "Plan local journeys around the day's activities.")
         ),
         duration: String(
-          transportation.duration ??
-            (transferDay ? "Light transfer day" : "Local movement")
+          transportation.duration ?? ""
         ),
       },
       estimated_daily_cost_usd: sanitizeAmount(
@@ -956,11 +959,13 @@ function buildFallbackItinerary(trip: TripData, totalDays: number): Partial<Itin
           : flexibleAfternoon,
         evening: isDepartureDay
           ? `Early dinner or airport transfer from ${location}`
-          : `Dinner at a locally-recommended restaurant — ${hasFood ? "prioritize off-menu local spots" : "relaxed evening"}`,
+          : hasFood
+          ? "Dinner at a local restaurant known for regional specialties"
+          : `Relaxed dinner and an easy evening in ${location}`,
         food_recommendation: hasFood
           ? attrs && attrs.food >= 80
-            ? `${location} has a strong local food scene. Ask your accommodation for their single best local recommendation.`
-            : `Ask your accommodation for the one restaurant they'd send a trusted friend to.`
+            ? `Explore regional specialties at local restaurants in ${location}.`
+            : "Try regional dishes at a local restaurant."
           : "",
         transport: isArrivalDay
           ? `Arrive from ${trip.starting_location}`

@@ -698,7 +698,8 @@ export default function Trip() {
                           <div>
                             <p className="text-xs font-semibold text-[#bb7a52]">Transport</p>
                             <p className="mt-1 text-sm text-[#65706d]">
-                              {day.transportation.mode} · {day.transportation.details} ({day.transportation.duration})
+                              {day.transportation.mode} · {day.transportation.details}
+                              {day.transportation.duration ? ` (${day.transportation.duration})` : ""}
                             </p>
                           </div>
                         )}
