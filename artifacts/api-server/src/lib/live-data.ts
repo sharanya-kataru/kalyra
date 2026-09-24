@@ -5,6 +5,7 @@ import { getWeatherForecast, type WeatherSearchInput } from "./weather";
 import { fallbackSource } from "./sources";
 import { calculateBudgetSummary, sanitizeAmount } from "./trip-utils";
 import { logger } from "./logger";
+import { getRouteCandidatePool } from "./destinations";
 
 const AIRPORT_ALIASES: Array<{ terms: string[]; code: string }> = [
   { terms: ["new york", "nyc", "jfk"], code: "JFK" },
@@ -174,9 +175,16 @@ async function buildFlightInputs(
 ): Promise<FlightSearchInput[]> {
   const firstDestination = itinerary.route[0]?.location ?? trip.destination;
 
+  const routeCandidate = getRouteCandidatePool(trip.destination).find(
+    (candidate) =>
+      candidate.name.toLowerCase().trim() === firstDestination.toLowerCase().trim()
+  );
+
+  const destinationContext = routeCandidate?.country ?? trip.destination;
+
   const destinationWithContext = normalizeLocationWithContext(
     firstDestination,
-    trip.destination
+    destinationContext
   );
 
   logger.info(
