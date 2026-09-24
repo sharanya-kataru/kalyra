@@ -760,6 +760,22 @@ components:
     LiveDataBundle:
       type: object
       properties:
+        locations:
+          type: array
+          items:
+            type: object
+            required: [location, lat, lon]
+            properties:
+              location:
+                type: string
+              lat:
+                type: number
+                minimum: -90
+                maximum: 90
+              lon:
+                type: number
+                minimum: -180
+                maximum: 180
         flight_search:
           $ref: "#/components/schemas/FlightSearch"
         weather:

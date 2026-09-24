@@ -256,7 +256,22 @@ export interface FlightSearch {
   message?: string;
 }
 
+export type LiveDataBundleLocationsItem = {
+  location: string;
+  /**
+     * @minimum -90
+     * @maximum 90
+     */
+  lat: number;
+  /**
+     * @minimum -180
+     * @maximum 180
+     */
+  lon: number;
+};
+
 export interface LiveDataBundle {
+  locations?: LiveDataBundleLocationsItem[];
   flight_search: FlightSearch;
   weather: WeatherSummary[];
   refreshed_at: string;

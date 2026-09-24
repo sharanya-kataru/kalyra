@@ -83,6 +83,12 @@ export const createTripResponseLatestItineraryOneBudgetSummaryFoodEstimatedMin =
 
 export const createTripResponseLatestItineraryOneBudgetSummaryActivitiesEstimatedMin = 0;
 
+export const createTripResponseLatestItineraryOneLiveDataLocationsItemLatMin = -90;
+export const createTripResponseLatestItineraryOneLiveDataLocationsItemLatMax = 90;
+
+export const createTripResponseLatestItineraryOneLiveDataLocationsItemLonMin = -180;
+export const createTripResponseLatestItineraryOneLiveDataLocationsItemLonMax = 180;
+
 export const createTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemTotalPriceUsdMin = 0;
 
 export const createTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemOutboundDurationMinutesMin = 0;
@@ -266,6 +272,11 @@ export const CreateTripResponse = zod.object({
   "estimates_only": zod.boolean()
 }),
   "live_data": zod.object({
+  "locations": zod.array(zod.object({
+  "location": zod.string(),
+  "lat": zod.number().min(createTripResponseLatestItineraryOneLiveDataLocationsItemLatMin).max(createTripResponseLatestItineraryOneLiveDataLocationsItemLatMax),
+  "lon": zod.number().min(createTripResponseLatestItineraryOneLiveDataLocationsItemLonMin).max(createTripResponseLatestItineraryOneLiveDataLocationsItemLonMax)
+})).optional(),
   "flight_search": zod.object({
   "status": zod.enum(['live', 'unavailable']),
   "origin": zod.string(),
@@ -466,6 +477,12 @@ export const getTripResponseLatestItineraryOneBudgetSummaryFoodEstimatedMin = 0;
 
 export const getTripResponseLatestItineraryOneBudgetSummaryActivitiesEstimatedMin = 0;
 
+export const getTripResponseLatestItineraryOneLiveDataLocationsItemLatMin = -90;
+export const getTripResponseLatestItineraryOneLiveDataLocationsItemLatMax = 90;
+
+export const getTripResponseLatestItineraryOneLiveDataLocationsItemLonMin = -180;
+export const getTripResponseLatestItineraryOneLiveDataLocationsItemLonMax = 180;
+
 export const getTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemTotalPriceUsdMin = 0;
 
 export const getTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemOutboundDurationMinutesMin = 0;
@@ -649,6 +666,11 @@ export const GetTripResponse = zod.object({
   "estimates_only": zod.boolean()
 }),
   "live_data": zod.object({
+  "locations": zod.array(zod.object({
+  "location": zod.string(),
+  "lat": zod.number().min(getTripResponseLatestItineraryOneLiveDataLocationsItemLatMin).max(getTripResponseLatestItineraryOneLiveDataLocationsItemLatMax),
+  "lon": zod.number().min(getTripResponseLatestItineraryOneLiveDataLocationsItemLonMin).max(getTripResponseLatestItineraryOneLiveDataLocationsItemLonMax)
+})).optional(),
   "flight_search": zod.object({
   "status": zod.enum(['live', 'unavailable']),
   "origin": zod.string(),
@@ -907,6 +929,12 @@ export const generateItineraryResponseBudgetSummaryFoodEstimatedMin = 0;
 
 export const generateItineraryResponseBudgetSummaryActivitiesEstimatedMin = 0;
 
+export const generateItineraryResponseLiveDataLocationsItemLatMin = -90;
+export const generateItineraryResponseLiveDataLocationsItemLatMax = 90;
+
+export const generateItineraryResponseLiveDataLocationsItemLonMin = -180;
+export const generateItineraryResponseLiveDataLocationsItemLonMax = 180;
+
 export const generateItineraryResponseLiveDataFlightSearchOffersItemTotalPriceUsdMin = 0;
 
 export const generateItineraryResponseLiveDataFlightSearchOffersItemOutboundDurationMinutesMin = 0;
@@ -1075,6 +1103,11 @@ export const GenerateItineraryResponse = zod.object({
   "estimates_only": zod.boolean()
 }),
   "live_data": zod.object({
+  "locations": zod.array(zod.object({
+  "location": zod.string(),
+  "lat": zod.number().min(generateItineraryResponseLiveDataLocationsItemLatMin).max(generateItineraryResponseLiveDataLocationsItemLatMax),
+  "lon": zod.number().min(generateItineraryResponseLiveDataLocationsItemLonMin).max(generateItineraryResponseLiveDataLocationsItemLonMax)
+})).optional(),
   "flight_search": zod.object({
   "status": zod.enum(['live', 'unavailable']),
   "origin": zod.string(),
@@ -1273,6 +1306,12 @@ export const refreshLiveDataResponseBudgetSummaryFoodEstimatedMin = 0;
 
 export const refreshLiveDataResponseBudgetSummaryActivitiesEstimatedMin = 0;
 
+export const refreshLiveDataResponseLiveDataLocationsItemLatMin = -90;
+export const refreshLiveDataResponseLiveDataLocationsItemLatMax = 90;
+
+export const refreshLiveDataResponseLiveDataLocationsItemLonMin = -180;
+export const refreshLiveDataResponseLiveDataLocationsItemLonMax = 180;
+
 export const refreshLiveDataResponseLiveDataFlightSearchOffersItemTotalPriceUsdMin = 0;
 
 export const refreshLiveDataResponseLiveDataFlightSearchOffersItemOutboundDurationMinutesMin = 0;
@@ -1441,6 +1480,11 @@ export const RefreshLiveDataResponse = zod.object({
   "estimates_only": zod.boolean()
 }),
   "live_data": zod.object({
+  "locations": zod.array(zod.object({
+  "location": zod.string(),
+  "lat": zod.number().min(refreshLiveDataResponseLiveDataLocationsItemLatMin).max(refreshLiveDataResponseLiveDataLocationsItemLatMax),
+  "lon": zod.number().min(refreshLiveDataResponseLiveDataLocationsItemLonMin).max(refreshLiveDataResponseLiveDataLocationsItemLonMax)
+})).optional(),
   "flight_search": zod.object({
   "status": zod.enum(['live', 'unavailable']),
   "origin": zod.string(),
@@ -1679,6 +1723,12 @@ export const modifyItineraryResponseItineraryBudgetSummaryFoodEstimatedMin = 0;
 
 export const modifyItineraryResponseItineraryBudgetSummaryActivitiesEstimatedMin = 0;
 
+export const modifyItineraryResponseItineraryLiveDataLocationsItemLatMin = -90;
+export const modifyItineraryResponseItineraryLiveDataLocationsItemLatMax = 90;
+
+export const modifyItineraryResponseItineraryLiveDataLocationsItemLonMin = -180;
+export const modifyItineraryResponseItineraryLiveDataLocationsItemLonMax = 180;
+
 export const modifyItineraryResponseItineraryLiveDataFlightSearchOffersItemTotalPriceUsdMin = 0;
 
 export const modifyItineraryResponseItineraryLiveDataFlightSearchOffersItemOutboundDurationMinutesMin = 0;
@@ -1914,6 +1964,11 @@ export const ModifyItineraryResponse = zod.object({
   "estimates_only": zod.boolean()
 }),
   "live_data": zod.object({
+  "locations": zod.array(zod.object({
+  "location": zod.string(),
+  "lat": zod.number().min(modifyItineraryResponseItineraryLiveDataLocationsItemLatMin).max(modifyItineraryResponseItineraryLiveDataLocationsItemLatMax),
+  "lon": zod.number().min(modifyItineraryResponseItineraryLiveDataLocationsItemLonMin).max(modifyItineraryResponseItineraryLiveDataLocationsItemLonMax)
+})).optional(),
   "flight_search": zod.object({
   "status": zod.enum(['live', 'unavailable']),
   "origin": zod.string(),

@@ -6,9 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { FlightSearch } from './flightSearch';
+import type { LiveDataBundleLocationsItem } from './liveDataBundleLocationsItem';
 import type { WeatherSummary } from './weatherSummary';
 
 export interface LiveDataBundle {
+  locations?: LiveDataBundleLocationsItem[];
   flight_search: FlightSearch;
   weather: WeatherSummary[];
   refreshed_at: string;

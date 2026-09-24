@@ -373,6 +373,7 @@ export async function enrichItineraryWithLiveData(
   itinerary: ItineraryData,
   trip: TripData
 ): Promise<ItineraryData> {
+  const resolvedLocations = new Map<string, { location: string; lat: number; lon: number }>();
   const weatherPromise = Promise.all(
     [...new Set(itinerary.daily_itinerary.map((day) => day.location))]
       .map(async (location) => {
@@ -383,6 +384,7 @@ export async function enrichItineraryWithLiveData(
         const resolved = await resolveLocation(locationWithContext);
 
         if (!resolved) return null;
+        resolvedLocations.set(location, { location, lat: resolved.lat, lon: resolved.lon });
 
         const input: WeatherSearchInput = {
           location,
@@ -456,7 +458,7 @@ const timingContext = applyFlightTimingContext(enriched, flightSearch);
 enriched = timingContext.itinerary;
 
 const weatherResults = await weatherPromise;
-  const weather = weatherResults.flatMap((result) => result.summaries);
+  const weather = weatherResults.flatMap((result) => result?.summaries ?? []);
   const weatherByDay = new Map(weather.map((summary) => [`${summary.location}|${summary.date}`, summary]));
   const restaurantsByDay = distributeRestaurants(
     enriched.daily_itinerary.map((day) => day.location),
@@ -474,6 +476,10 @@ const weatherResults = await weatherPromise;
       };
     }),
     live_data: {
+      locations: itinerary.route.flatMap((stop) => {
+        const resolved = resolvedLocations.get(stop.location);
+        return resolved ? [resolved] : [];
+      }),
       flight_search: flightSearch,
       weather,
       refreshed_at: new Date().toISOString(),

@@ -33,6 +33,7 @@ export * from './itinerary';
 export * from './itineraryCurrency';
 export * from './listDestinations200';
 export * from './liveDataBundle';
+export * from './liveDataBundleLocationsItem';
 export * from './routeStop';
 export * from './tradeoffItem';
 export * from './travelerProfile';

@@ -20,6 +20,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
+import { TripMap } from '@/components/TripMap';
 import { useTripContext } from '@/context/TripContext';
 import { useModifyItinerary, useRefreshLiveData } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
@@ -523,6 +524,7 @@ export default function Trip() {
                 })}
               </div>
             </div>
+            <TripMap itinerary={itinerary} />
             {itinerary.route.some((r) => r.transport_to_next) && (
               <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-[#e7e5d9] px-4 py-3 text-xs text-[#65706d]">
                 <TrainFront size={16} />

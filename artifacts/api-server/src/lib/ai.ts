@@ -176,6 +176,7 @@ export interface ItineraryData {
   reasoning: string;
   tradeoffs: TradeoffItem[];
   live_data?: {
+    locations?: Array<{ location: string; lat: number; lon: number }>;
     flight_search: FlightSearchResult;
     weather: WeatherSummary[];
     refreshed_at: string;
