@@ -139,7 +139,7 @@ function parseDateRange(input: string): [string, string] | null {
 export default function Plan() {
   const [, setLocation] = useLocation();
   const [step, setStep] = useState(0);
-  const { setPlanData, setTripId } = useTripContext();
+  const { setPlanData, setTripId, setAnalysis, setItinerary } = useTripContext();
   const { toast } = useToast();
   
   const [destination, setDestination] = useState('');
@@ -303,6 +303,8 @@ export default function Plan() {
         },
         {
           onSuccess: (trip) => {
+            setAnalysis(null);
+            setItinerary(null);
             setTripId(trip.id);
             setLocation('/analysis');
           },
