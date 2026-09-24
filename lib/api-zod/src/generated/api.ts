@@ -160,6 +160,8 @@ export const CreateTripResponse = zod.object({
   "total_nights": zod.number().min(1),
   "trip_strategy": zod.string(),
   "route": zod.array(zod.object({
+  "why_selected": zod.string().optional(),
+  "experience_score": zod.number().optional(),
   "location": zod.string(),
   "nights": zod.number(),
   "transport_to_next": zod.string().nullable(),
@@ -554,6 +556,8 @@ export const GetTripResponse = zod.object({
   "total_nights": zod.number().min(1),
   "trip_strategy": zod.string(),
   "route": zod.array(zod.object({
+  "why_selected": zod.string().optional(),
+  "experience_score": zod.number().optional(),
   "location": zod.string(),
   "nights": zod.number(),
   "transport_to_next": zod.string().nullable(),
@@ -991,6 +995,8 @@ export const GenerateItineraryResponse = zod.object({
   "total_nights": zod.number().min(1),
   "trip_strategy": zod.string(),
   "route": zod.array(zod.object({
+  "why_selected": zod.string().optional(),
+  "experience_score": zod.number().optional(),
   "location": zod.string(),
   "nights": zod.number(),
   "transport_to_next": zod.string().nullable(),
@@ -1368,6 +1374,8 @@ export const RefreshLiveDataResponse = zod.object({
   "total_nights": zod.number().min(1),
   "trip_strategy": zod.string(),
   "route": zod.array(zod.object({
+  "why_selected": zod.string().optional(),
+  "experience_score": zod.number().optional(),
   "location": zod.string(),
   "nights": zod.number(),
   "transport_to_next": zod.string().nullable(),
@@ -1852,6 +1860,8 @@ export const ModifyItineraryResponse = zod.object({
   "total_nights": zod.number().min(1),
   "trip_strategy": zod.string(),
   "route": zod.array(zod.object({
+  "why_selected": zod.string().optional(),
+  "experience_score": zod.number().optional(),
   "location": zod.string(),
   "nights": zod.number(),
   "transport_to_next": zod.string().nullable(),

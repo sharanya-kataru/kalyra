@@ -514,6 +514,13 @@ export default function Trip() {
                         <div>
                           <p className="font-bold">{stop.location}</p>
                           <p className="text-xs text-[#65706d]">{stop.nights} nights</p>
+                          <details className="mt-2 max-w-[260px] text-xs text-[#65706d]">
+                            <summary className="cursor-pointer font-semibold text-[#34594b]">Why Kalyra chose this</summary>
+                            <p className="mt-2 leading-relaxed">{stop.why_selected || 'Detailed selection reasoning is unavailable for this saved stop.'}</p>
+                            {stop.why_selected && stop.experience_score !== undefined && (
+                              <p className="mt-2">Overall destination fit: {stop.experience_score}/100</p>
+                            )}
+                          </details>
                         </div>
                       </div>
                       {stop.transport_to_next && i < itinerary.route.length - 1 && (

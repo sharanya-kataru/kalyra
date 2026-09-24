@@ -8,6 +8,7 @@ import {
 import { buildScoringContext, computeTripHealthScore, type TripHealthScore } from "./scoring";
 import {
   selectRouteCandidates,
+  explainRouteSelection,
   type DestinationDecisionScore,
 } from "./decision-engine";
 import {
@@ -904,7 +905,7 @@ function buildFallbackItinerary(trip: TripData, totalDays: number): Partial<Itin
     nights: normalizedNights[i] ?? 2,
     transport_to_next: i < destinations.length - 1 ? "train" : null,
     duration_hours: i < destinations.length - 1 ? 2.5 : null,
-    why_selected: "Selected from the destination catalog for fit, pacing, and transport efficiency.",
+    why_selected: explainRouteSelection(selection.scores.find((score) => score.name === dest), trip),
     experience_score: selection.scores.find((score) => score.name === dest)?.overall_score,
   }));
 

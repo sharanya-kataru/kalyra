@@ -61,6 +61,31 @@ export interface RouteSelection {
   countries_requested: string[];
 }
 
+/** Describe existing decision evidence without changing scores or selection. */
+export function explainRouteSelection(score: DestinationDecisionScore | undefined, trip: DecisionTrip): string {
+  const attrs = score ? lookupDestination(score.name) : undefined;
+  if (!score?.found || score.confidence === "limited" || !attrs) {
+    return "Detailed destination-fit data is unavailable for this stop; its match to your preferences could not be verified.";
+  }
+  const profile = buildTravelerPreferenceProfile(trip.traveler_profile.interests);
+  const labels: Record<InterestDimension, string> = {
+    food: "food", culture: "culture", nature: "nature",
+    photography: "photography and visual appeal", uniqueness: "distinctive experiences",
+  };
+  const dimensions = (Object.keys(profile.weights) as InterestDimension[])
+    .filter((dimension) => profile.weights[dimension] > 0 && Number.isFinite(attrs[dimension]) && attrs[dimension] >= 70)
+    .sort((a, b) => profile.weights[b] * attrs[b] - profile.weights[a] * attrs[a] || a.localeCompare(b))
+    .slice(0, 3);
+  const lead = dimensions.length
+    ? `Based on your interests, Kalyra prioritized ${dimensions.map((dimension) => labels[dimension]).join(", ")}—areas rated strongly in this destination's catalog data.`
+    : "The catalog does not show a strong rating in the areas used to evaluate your selected interests.";
+  const factors: string[] = [];
+  if (score.budget_fit >= 80) factors.push(`Budget fit ${score.budget_fit}/100 for your $${trip.budget.toLocaleString("en-US")} trip budget and ${trip.traveler_count} traveler${trip.traveler_count === 1 ? "" : "s"}`);
+  if (score.pace_fit >= 80) factors.push(`Pace fit ${score.pace_fit}/100 for your ${trip.traveler_profile.travel_style.toLowerCase()} pace and ${parseTripDuration(trip.start_date, trip.end_date).total_nights} nights`);
+  if (score.season_fit === 100) factors.push("Your arrival month falls within the catalog's recommended season");
+  return `${lead}${factors.length ? ` ${factors.slice(0, 2).join("; ")}.` : " Other scored factors were weighed alongside interest fit."}`;
+}
+
 type InterestDimension = keyof TravelerPreferenceProfile["weights"];
 
 interface InterestMapping {

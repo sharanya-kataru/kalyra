@@ -7,6 +7,8 @@
  */
 
 export interface RouteStop {
+  why_selected?: string;
+  experience_score?: number;
   location: string;
   nights: number;
   /** @nullable */

@@ -390,6 +390,10 @@ components:
     RouteStop:
       type: object
       properties:
+        why_selected:
+          type: string
+        experience_score:
+          type: number
         location:
           type: string
         nights:
