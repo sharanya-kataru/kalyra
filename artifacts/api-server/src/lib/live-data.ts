@@ -14,6 +14,7 @@ import { fallbackSource } from "./sources";
 import { calculateBudgetSummary, sanitizeAmount } from "./trip-utils";
 import { logger } from "./logger";
 import { getRouteCandidatePool } from "./destinations";
+import { distributeRestaurants } from "./restaurant-recommendations";
 
 function normalizeLocationWithContext(
   location: string,
@@ -404,7 +405,7 @@ const restaurantEntries = placesProvider
 const restaurantsByLocation = new Map(
   restaurantEntries.map(([location, restaurants]) => [
     location,
-    restaurants.slice(0, 3).map((restaurant) => restaurant.name),
+    restaurants.map((restaurant) => restaurant.name),
   ])
 );
 
@@ -434,16 +435,16 @@ enriched = timingContext.itinerary;
 const weatherResults = await weatherPromise;
   const weather = weatherResults.flatMap((result) => result.summaries);
   const weatherByDay = new Map(weather.map((summary) => [`${summary.location}|${summary.date}`, summary]));
+  const restaurantsByDay = distributeRestaurants(
+    enriched.daily_itinerary.map((day) => day.location),
+    restaurantsByLocation
+  );
   enriched = {
     ...enriched,
-    daily_itinerary: enriched.daily_itinerary.map((day) => {
-      const restaurants = restaurantsByLocation.get(day.location) ?? [];
-
+    daily_itinerary: enriched.daily_itinerary.map((day, index) => {
       return {
         ...day,
-        ...(restaurants.length > 0
-          ? { food_recommendations: restaurants }
-          : {}),
+        food_recommendations: restaurantsByDay[index],
         ...(weatherByDay.has(`${day.location}|${day.date}`)
           ? { weather: weatherByDay.get(`${day.location}|${day.date}`) }
           : {}),
