@@ -18,7 +18,8 @@ import {
   sanitizeAmount,
   type BudgetSummary,
 } from "./trip-utils";
-import { collectPlaceContext } from "./places";
+import { getPlacesProvider } from "./places";
+import { discoverDailyActivities } from "./daily-activities";
 import type { FlightSearchResult } from "./flights";
 import type { WeatherSummary } from "./weather";
 import { estimatedSource, type DataSourceMetadata } from "./sources";
@@ -295,8 +296,8 @@ function activityPart(
     };
   }
   return {
-    activity: fallbackActivity,
-    description: typeof value === "string" && value ? value : fallbackDescription,
+    activity: typeof value === "string" && value.trim() ? value : fallbackActivity,
+    description: fallbackDescription,
     estimated_cost_usd: fallbackCost,
   };
 }
@@ -596,11 +597,17 @@ export async function generateItinerary(trip: TripData): Promise<ItineraryData> 
     trip.end_date
   );
 
-  return normalizeItinerary(
+  const itinerary = normalizeItinerary(
     buildFallbackItinerary(trip, totalDays),
     trip,
     totalDays
   );
+  const dailyItinerary = await discoverDailyActivities(itinerary, trip, getPlacesProvider());
+  return {
+    ...itinerary,
+    daily_itinerary: dailyItinerary,
+    daily_schedule: legacyScheduleFromRich(dailyItinerary),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -911,13 +918,13 @@ function buildFallbackItinerary(trip: TripData, totalDays: number): Partial<Itin
     const dayVariant = dayIndex % 3;
 
     const natureMorning = [
-      `Explore ${location}'s natural surroundings and viewpoints${attrs && attrs.photography >= 85 ? ` (photography score: ${attrs.photography}/100)` : ""}`,
+      `Explore ${location}'s natural surroundings and viewpoints`,
       `Take a slower scenic morning in ${location} with time for photography and an easy walk`,
       `Choose one outdoor highlight in ${location} and leave time to explore without rushing`,
     ][dayVariant];
 
     const cultureMorning = [
-      `Explore the historic center of ${location}${attrs && attrs.culture >= 85 ? ` (culture score: ${attrs.culture}/100)` : ""}`,
+      `Explore the historic center of ${location}`,
       `Spend the morning with ${location}'s architecture, neighborhoods, and local history`,
       `Choose one cultural highlight in ${location}, then explore the surrounding streets`,
     ][dayVariant];
@@ -945,14 +952,14 @@ function buildFallbackItinerary(trip: TripData, totalDays: number): Partial<Itin
         afternoon: isDepartureDay
           ? `Keep the afternoon open for a final meal before leaving`
           : hasFood
-          ? `Local food market and culinary experience — regional specialties${attrs && attrs.food >= 85 ? ` (food scene rated ${attrs.food}/100)` : ""}`
+          ? `Local food market and culinary experience — regional specialties`
           : flexibleAfternoon,
         evening: isDepartureDay
           ? `Early dinner or airport transfer from ${location}`
           : `Dinner at a locally-recommended restaurant — ${hasFood ? "prioritize off-menu local spots" : "relaxed evening"}`,
         food_recommendation: hasFood
           ? attrs && attrs.food >= 80
-            ? `${location} has a strong local food scene (${attrs.food}/100). Ask your accommodation for their single best local recommendation.`
+            ? `${location} has a strong local food scene. Ask your accommodation for their single best local recommendation.`
             : `Ask your accommodation for the one restaurant they'd send a trusted friend to.`
           : "",
         transport: isArrivalDay

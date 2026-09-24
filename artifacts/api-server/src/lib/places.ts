@@ -11,6 +11,10 @@ import { getDestinationCatalogMatch } from "./destinations";
 export interface PlaceResult {
   name: string;
   category: string;
+  categories?: string[];
+  city?: string;
+  address_line2?: string;
+  description?: string;
   address?: string;
   lat?: number;
   lon?: number;
@@ -73,6 +77,9 @@ class GeoapifyPlacesProvider implements PlacesProvider {
             name?: string;
             formatted?: string;
             categories?: string[];
+            city?: string;
+            address_line2?: string;
+            description?: string;
             lat?: number;
             lon?: number;
           };
@@ -86,6 +93,10 @@ class GeoapifyPlacesProvider implements PlacesProvider {
         .map((property) => ({
           name: property.name,
           category: property.categories?.[0] ?? "place",
+          categories: property.categories,
+          city: property.city,
+          address_line2: property.address_line2,
+          description: property.description,
           address: property.formatted,
           lat: property.lat,
           lon: property.lon,
