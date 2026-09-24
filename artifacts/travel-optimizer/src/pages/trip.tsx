@@ -247,12 +247,20 @@ function TripHealthScoreCard({ score }: { score: TripHealthScore }) {
                 <div className="flex-1">
                   <ScoreBar score={sub.score} label={sub.label} />
                 </div>
-                <div className="flex w-24 shrink-0 items-center justify-end gap-2">
-                  <span className="font-mono-custom text-sm text-[#203b47]">{sub.score}</span>
-                  <ScoreBadge label={sub.label} />
+                <div className="grid w-40 shrink-0 grid-cols-[2rem_1fr_1rem] items-center gap-2">
+                  <span className="text-right font-mono-custom text-sm text-[#203b47]">
+                    {sub.score}
+                  </span>
+
+                  <div className="flex justify-center">
+                    <ScoreBadge label={sub.label} />
+                  </div>
+
                   <ChevronDown
                     size={14}
-                    className={`shrink-0 text-[#a0a8a4] transition ${isExpanded ? 'rotate-180' : ''}`}
+                    className={`shrink-0 text-[#a0a8a4] transition ${
+                      isExpanded ? 'rotate-180' : ''
+                    }`}
                   />
                 </div>
               </button>
@@ -451,7 +459,9 @@ export default function Trip() {
                 </div>
               )}
               <div className="max-w-xs text-right text-sm leading-6 text-[#65706d]">
-                <p>{itinerary.total_days} days · {itinerary.total_nights} nights · {baseCount} bases</p>
+                <p>
+                  {itinerary.total_days} days · {itinerary.total_nights} nights · {baseCount} {baseCount === 1 ? 'base' : 'bases'}
+                </p>
                 <p className="mt-1">{itinerary.reasoning}</p>
               </div>
             </div>
@@ -589,9 +599,6 @@ export default function Trip() {
                 onRefresh={handleRefreshLiveData}
                 refreshing={refreshLiveData.isPending}
                 travelerCount={travelerCount}
-                estimatedFlightCost={
-                  itinerary.budget_breakdown.find((item) => item.category === 'Flights')?.estimated_amount ?? 0
-                }
               />
             )}
 
@@ -953,16 +960,16 @@ function LiveTravelData({
   onRefresh,
   refreshing,
   travelerCount,
-  estimatedFlightCost,
 }: {
   data: any;
   onRefresh: () => void;
   refreshing: boolean;
   travelerCount: number;
-  estimatedFlightCost: number;
 }) {
   const flight = data.flight_search;
   const selected = flight?.selected_offer;
+  const isNearbyDateEstimate =
+    flight?.status === 'unavailable' && selected != null;
   const weatherCount = data.weather?.length ?? 0;
   const surfacedOffers = selected
     ? [selected, ...(flight?.offers ?? []).filter((offer: any) => offer.provider_offer_id !== selected.provider_offer_id).slice(0, 2)]
@@ -1010,7 +1017,7 @@ function LiveTravelData({
               freshness={flight?.source_metadata?.freshness}
             />
           </div>
-          {selected ? (
+          {selected && !isNearbyDateEstimate ? (
             <>
               <div className="mt-7 flex items-end justify-between gap-3">
                 <div>
@@ -1073,18 +1080,29 @@ function LiveTravelData({
             </>
           ) : (
             <div className="mt-7">
-              <p className="font-display text-4xl">
-                {formatUsd(estimatedFlightCost)} estimated total
-              </p>
-              <p className="mt-1 text-xs text-[#65706d]">
-                {formatUsd(estimatedFlightCost / travelerCount)} per person
-                {' · '}
-                {travelerCount} traveler{travelerCount === 1 ? '' : 's'}
-              </p>
-              <p className="mt-4 text-xs leading-5 text-[#65706d]">
-                {flight?.message ??
-                  'Live fares are unavailable, so Kalyra is using this estimated flight cost in your trip budget.'}
-              </p>
+              {isNearbyDateEstimate ? (
+                <>
+                  <p className="font-display text-4xl">
+                    {formatUsd(selected.total_price_usd)} estimated total
+                  </p>
+                  <p className="mt-1 text-xs text-[#65706d]">
+                    {formatUsd(selected.total_price_usd / travelerCount)} per person
+                    {' · '}
+                    {travelerCount} traveler{travelerCount === 1 ? '' : 's'}
+                  </p>
+                  <p className="mt-4 text-xs leading-5 text-[#65706d]">
+                    {flight?.message}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-display text-3xl">Flight pricing unavailable</p>
+                  <p className="mt-4 text-xs leading-5 text-[#65706d]">
+                    {flight?.message ??
+                      'Kalyra could not find usable fares for your exact or nearby travel dates.'}
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>

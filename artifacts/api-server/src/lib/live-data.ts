@@ -1,84 +1,15 @@
 import type { ItineraryData, TripData } from "./ai";
-import { searchFlights, type FlightSearchInput, type FlightSearchResult } from "./flights";
+import {
+  searchFlights,
+  type FlightSearchInput,
+  type FlightSearchResult,
+} from "./flights";
 import { discoverNearbyAirports, resolveLocation } from "./places";
 import { getWeatherForecast, type WeatherSearchInput } from "./weather";
 import { fallbackSource } from "./sources";
 import { calculateBudgetSummary, sanitizeAmount } from "./trip-utils";
 import { logger } from "./logger";
 import { getRouteCandidatePool } from "./destinations";
-
-const AIRPORT_ALIASES: Array<{ terms: string[]; code: string }> = [
-  { terms: ["new york", "nyc", "jfk"], code: "JFK" },
-  { terms: ["newark", "ewr"], code: "EWR" },
-  { terms: ["boston", "bos"], code: "BOS" },
-  { terms: ["chicago", "ord"], code: "ORD" },
-  { terms: ["los angeles", "lax"], code: "LAX" },
-  { terms: ["san francisco", "sfo"], code: "SFO" },
-  { terms: ["washington", "dca", "iad"], code: "DCA" },
-  { terms: ["atlanta", "atl"], code: "ATL" },
-  { terms: ["miami", "mia"], code: "MIA" },
-  { terms: ["rome", "roma", "fco"], code: "FCO" },
-  { terms: ["milan", "mxp"], code: "MXP" },
-  { terms: ["venice", "vce"], code: "VCE" },
-  { terms: ["florence", "flr"], code: "FLR" },
-  { terms: ["zurich", "zrh"], code: "ZRH" },
-  { terms: ["geneva", "gva"], code: "GVA" },
-  { terms: ["guatemala", "gua"], code: "GUA" },
-  { terms: ["guatemala city"], code: "GUA" },
-  { terms: ["edinburgh", "edi"], code: "EDI" },
-  { terms: ["lisbon", "lis"], code: "LIS" },
-  { terms: ["porto", "opo"], code: "OPO" },
-  { terms: ["tokyo", "nrt", "hnd"], code: "NRT" },
-  { terms: ["kyoto", "kix"], code: "KIX" },
-];
-
-const DESTINATION_AIRPORTS: Array<{ terms: string[]; code: string }> = [
-  { terms: ["italy", "italian"], code: "MXP" },
-  { terms: ["switzerland", "swiss"], code: "ZRH" },
-  { terms: ["italy and switzerland", "italy & switzerland"], code: "MXP" },
-  { terms: ["guatemala"], code: "GUA" },
-  { terms: ["scotland"], code: "EDI" },
-  { terms: ["portugal"], code: "LIS" },
-  { terms: ["japan"], code: "NRT" },
-  ...AIRPORT_ALIASES,
-];
-
-const DESTINATION_COORDINATES: Array<{ terms: string[]; latitude: number; longitude: number }> = [
-  { terms: ["milan"], latitude: 45.4642, longitude: 9.19 },
-  { terms: ["lake como", "como"], latitude: 45.987, longitude: 9.257 },
-  { terms: ["florence"], latitude: 43.7696, longitude: 11.2558 },
-  { terms: ["venice"], latitude: 45.4408, longitude: 12.3155 },
-  { terms: ["rome"], latitude: 41.9028, longitude: 12.4964 },
-  { terms: ["zermatt"], latitude: 46.0207, longitude: 7.7491 },
-  { terms: ["interlaken"], latitude: 46.6863, longitude: 7.8632 },
-  { terms: ["grindelwald"], latitude: 46.6242, longitude: 8.0414 },
-  { terms: ["lucerne", "luzern"], latitude: 47.0502, longitude: 8.3093 },
-  { terms: ["antigua"], latitude: 14.5586, longitude: -90.7295 },
-  { terms: ["lake atitlan", "atitlan"], latitude: 14.6907, longitude: -91.2025 },
-  { terms: ["flores", "tikal"], latitude: 16.927, longitude: -89.889 },
-  { terms: ["guatemala city"], latitude: 14.6349, longitude: -90.5069 },
-  { terms: ["edinburgh"], latitude: 55.9533, longitude: -3.1883 },
-  { terms: ["scottish highlands"], latitude: 57.12, longitude: -4.71 },
-  { terms: ["isle of skye", "skye"], latitude: 57.2736, longitude: -6.2155 },
-  { terms: ["lisbon"], latitude: 38.7223, longitude: -9.1393 },
-  { terms: ["porto"], latitude: 41.1579, longitude: -8.6291 },
-  { terms: ["algarve"], latitude: 37.0179, longitude: -7.9304 },
-  { terms: ["tokyo"], latitude: 35.6762, longitude: 139.6503 },
-  { terms: ["kyoto"], latitude: 35.0116, longitude: 135.7681 },
-  { terms: ["osaka"], latitude: 34.6937, longitude: 135.5023 },
-];
-
-function lookupCode(value: string, entries: Array<{ terms: string[]; code: string }>): string | null {
-  const normalized = value.toLowerCase().trim();
-  const found = entries.find((entry) => entry.terms.some((term) => normalized.includes(term)));
-  if (found) return found.code;
-  const exactIata = normalized.match(/\b[a-z]{3}\b/i)?.[0];
-  return exactIata ? exactIata.toUpperCase() : null;
-}
-
-export function resolveAirportCode(value: string, destination = false): string | null {
-  return lookupCode(value, destination ? DESTINATION_AIRPORTS : AIRPORT_ALIASES);
-}
 
 function normalizeLocationWithContext(location: string, context: string): string {
   const locTrimmed = location.trim().toLowerCase();
@@ -103,21 +34,6 @@ function normalizeLocationWithContext(location: string, context: string): string
   return `${location.trim()}, ${context.trim()}`;
 }
 
-async function resolveDynamicAirportIata(locationString: string): Promise<string | null> {
-  const trimmed = locationString.trim();
-  if (!trimmed) return null;
-
-  try {
-    const resolved = await resolveLocation(trimmed);
-    if (!resolved) return null;
-
-    const airports = await discoverNearbyAirports(resolved);
-
-    return airports.find((airport) => Boolean(airport.iata))?.iata ?? null;
-  } catch {
-    return null;
-  }
-}
 
 async function resolveDynamicAirportIatas(
   locationString: string,
@@ -132,10 +48,11 @@ async function resolveDynamicAirportIatas(
 
     const airports = await discoverNearbyAirports(resolved);
 
-    return airports
+    const iataCodes = airports
       .map((airport) => airport.iata)
-      .filter((iata): iata is string => Boolean(iata))
-      .slice(0, maxAirports);
+      .filter((iata): iata is string => Boolean(iata));
+
+    return iataCodes.slice(0, maxAirports);
   } catch (error) {
     logger.warn(
       {
@@ -148,11 +65,6 @@ async function resolveDynamicAirportIatas(
 
     return [];
   }
-}
-
-export function resolveDestinationCoordinates(location: string): { latitude: number; longitude: number } | null {
-  const normalized = location.toLowerCase().trim();
-  return DESTINATION_COORDINATES.find((entry) => entry.terms.some((term) => normalized.includes(term))) ?? null;
 }
 
 function noFlightResult(input: FlightSearchInput, message: string): FlightSearchResult {
@@ -197,22 +109,9 @@ async function buildFlightInputs(
   );
 
   let [origins, destinations] = await Promise.all([
-    resolveDynamicAirportIatas(trip.starting_location, 6),
+    resolveDynamicAirportIatas(trip.starting_location, 3),
     resolveDynamicAirportIatas(destinationWithContext, 2),
   ]);
-
-  if (origins.length === 0) {
-    const fallbackOrigin = resolveAirportCode(trip.starting_location);
-    if (fallbackOrigin) origins = [fallbackOrigin];
-  }
-
-  if (destinations.length === 0) {
-    const fallbackDestination =
-      resolveAirportCode(firstDestination, true) ??
-      resolveAirportCode(trip.destination, true);
-
-    if (fallbackDestination) destinations = [fallbackDestination];
-  }
 
   if (origins.length === 0 || destinations.length === 0) {
     return [];
@@ -251,8 +150,10 @@ function attachFlightBudget(itinerary: ItineraryData, trip: TripData, result: Fl
       ? {
           ...item,
           estimated_amount: sanitizeAmount(selected.total_price_usd),
-          description: `Round-trip fare for ${selected.carriers.join(" + ") || "selected carriers"}; ${selected.stop_count} stop${selected.stop_count === 1 ? "" : "s"}.`,
-          source_metadata: selected.source_metadata,
+          description:
+            result.status === "live"
+              ? `Round-trip fare for ${selected.carriers.join(" + ") || "selected carriers"}; ${selected.stop_count} stop${selected.stop_count === 1 ? "" : "s"}.`
+              : "Estimated round-trip airfare based on live fares found for nearby travel dates.",
         }
       : item
   );
@@ -323,11 +224,12 @@ async function searchFlightCandidates(
   if (inputs.length === 0) return null;
 
   const batchSize = 3;
+  let bestEstimatedResult: FlightSearchResult | null = null;
 
   for (let index = 0; index < inputs.length; index += batchSize) {
     const batch = inputs.slice(index, index + batchSize);
     const results = await Promise.all(
-      batch.map((input) => searchFlights(input))
+      batch.map((input) => searchFlights(input, false))
     );
 
     const liveResults = results.filter(
@@ -335,6 +237,22 @@ async function searchFlightCandidates(
         result.status === "live" &&
         result.selected_offer !== null
     );
+
+    const estimatedResults = results.filter(
+      (result) =>
+        result.status === "unavailable" &&
+        result.selected_offer !== null
+    );
+
+    for (const estimated of estimatedResults) {
+      if (
+        !bestEstimatedResult ||
+        estimated.selected_offer!.total_price_usd <
+          bestEstimatedResult.selected_offer!.total_price_usd
+      ) {
+        bestEstimatedResult = estimated;
+      }
+    }
 
     if (liveResults.length > 0) {
       const rankedResults = liveResults.sort((left, right) => {
@@ -372,7 +290,22 @@ async function searchFlightCandidates(
     }
   }
 
-  return null;
+    const fallbackInput = inputs[0];
+
+  if (!fallbackInput) {
+    return bestEstimatedResult;
+  }
+
+  const nearbyResult = await searchFlights(fallbackInput, true);
+
+  if (
+    nearbyResult.status === "unavailable" &&
+    nearbyResult.selected_offer !== null
+  ) {
+    return nearbyResult;
+  }
+
+  return bestEstimatedResult;
 }
 
 export async function enrichItineraryWithLiveData(
@@ -380,21 +313,22 @@ export async function enrichItineraryWithLiveData(
   trip: TripData
 ): Promise<ItineraryData> {
   const weatherPromise = Promise.all(
-  [...new Set(itinerary.daily_itinerary.map((day) => day.location))]
-    .map((location) => {
-      const coordinates = resolveDestinationCoordinates(location);
+    [...new Set(itinerary.daily_itinerary.map((day) => day.location))]
+      .map(async (location) => {
+        const resolved = await resolveLocation(location);
 
-      if (!coordinates) return null;
+        if (!resolved) return null;
 
-      const input: WeatherSearchInput = {
-        location,
-        ...coordinates,
-        start_date: trip.start_date,
-        end_date: trip.end_date,
-      };
+        const input: WeatherSearchInput = {
+          location,
+          latitude: resolved.lat,
+          longitude: resolved.lon,
+          start_date: trip.start_date,
+          end_date: trip.end_date,
+        };
 
-      return getWeatherForecast(input);
-    })
+        return getWeatherForecast(input);
+      })
     .filter(
       (
         result
