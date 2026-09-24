@@ -827,10 +827,6 @@ export async function discoverNearbyAirports(location: ResolvedLocation): Promis
     const nextCandidates = await searchAirportRadius(location, apiKey, radiusMeters, seen, candidates);
     const validIataCandidates = nextCandidates.filter((candidate) => Boolean(candidate.iata));
 
-    if (radiusMeters === 250_000 && validIataCandidates.length > 0) {
-      break;
-    }
-
     if (radiusMeters === 500_000) {
       break;
     }
