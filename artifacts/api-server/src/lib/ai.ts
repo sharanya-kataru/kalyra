@@ -352,7 +352,9 @@ function normalizeDailyItinerary(
     const transportation = (rich.transportation ?? {}) as Record<string, unknown>;
     const food = Array.isArray(rich.food_recommendations)
       ? rich.food_recommendations.map(String).filter(Boolean)
-      : [String(legacyActivities.food_recommendation ?? "Ask your accommodation for a local recommendation.")];
+      : legacyActivities.food_recommendation
+      ? [String(legacyActivities.food_recommendation)].filter(Boolean)
+      : [];
     const weather = rich.weather && typeof rich.weather === "object"
       ? rich.weather as WeatherSummary
       : undefined;
@@ -364,11 +366,19 @@ function normalizeDailyItinerary(
       morning,
       afternoon,
       evening,
-      food_recommendations: food.length > 0 ? food : ["Ask a local for one trusted recommendation."],
+      food_recommendations: food,
       transportation: {
         mode: String(transportation.mode ?? legacyActivities.transport ?? "Walk and local transit"),
-        details: String(transportation.details ?? legacyActivities.transport ?? "Use local transit and walk between nearby stops."),
-        duration: String(transportation.duration ?? (transferDay ? "Light transfer day" : "Local movement")),
+        details: String(
+          transportation.details ??
+            (legacyActivities.transport
+              ? "Follow the planned route for this leg."
+              : "Use local transit and walk between nearby stops.")
+        ),
+        duration: String(
+          transportation.duration ??
+            (transferDay ? "Light transfer day" : "Local movement")
+        ),
       },
       estimated_daily_cost_usd: sanitizeAmount(
         rich.estimated_daily_cost_usd ??
@@ -811,7 +821,7 @@ function buildFallbackAnalysis(trip: TripData): TripAnalysis {
     {
       name: "Balanced signature",
       best_for: interests.length > 0 ? interests.slice(0, 2) : ["A little of everything"],
-      changes: `Keep ${selection.base_count} bases selected from the ranked candidate pool.`,
+      changes: `Keep ${selection.base_count} base${selection.base_count === 1 ? "" : "s"} selected from the ranked candidate pool.`,
       gains: "Maintains variety without defaulting to every catalog entry.",
       sacrifices: "Some stays may be shorter than the ideal midpoint.",
       estimated_budget_impact_usd: 0,
@@ -837,7 +847,7 @@ function buildFallbackAnalysis(trip: TripData): TripAnalysis {
   const countries = selection.countries_requested.filter(Boolean);
   return {
     trip_strategy: topDest
-      ? `For ${totalDays} days, Kalyra ranks ${topDest.name} highest at ${topDest.score}/100 and selects ${selection.base_count} base${selection.base_count === 1 ? "" : "s"} for a ${trip.traveler_profile.travel_style.toLowerCase()} pace. ${countries.length > 1 ? `The route keeps representation across ${countries.join(" and ")}.` : "The route favors depth over catalog order."}`
+      ? `For ${totalDays} days, Kalyra ranks ${topDest.name} highest at ${topDest.score}/100 and selects ${selection.base_count} base${selection.base_count === 1 ? "" : "s"} based on your preferred pace. ${countries.length > 1 ? `The route keeps representation across ${countries.join(" and ")}.` : "The route favors depth over catalog order."}`
       : `Kalyra found limited catalog data for ${trip.destination} and is keeping the route conservative.`,
     destinations,
     reasoning: `The shortlist combines normalized interest fit with budget fit for ${trip.traveler_count} traveler${trip.traveler_count === 1 ? "" : "s"}, pace/stay fit, ${new Date(`${trip.start_date}T00:00:00Z`).toLocaleString("en-US", { month: "long" })} season fit, crowd friction, transport friction, and exploration value. Catalog daily costs are treated as per traveler and exclude flights.`,
@@ -898,6 +908,26 @@ function buildFallbackItinerary(trip: TripData, totalDays: number): Partial<Itin
     const isDepartureDay = dayIndex === totalDays - 1;
     const isTransferDay = !isArrivalDay && routeLocationForDay(route, dayIndex - 1) !== location;
 
+    const dayVariant = dayIndex % 3;
+
+    const natureMorning = [
+      `Explore ${location}'s natural surroundings and viewpoints${attrs && attrs.photography >= 85 ? ` (photography score: ${attrs.photography}/100)` : ""}`,
+      `Take a slower scenic morning in ${location} with time for photography and an easy walk`,
+      `Choose one outdoor highlight in ${location} and leave time to explore without rushing`,
+    ][dayVariant];
+
+    const cultureMorning = [
+      `Explore the historic center of ${location}${attrs && attrs.culture >= 85 ? ` (culture score: ${attrs.culture}/100)` : ""}`,
+      `Spend the morning with ${location}'s architecture, neighborhoods, and local history`,
+      `Choose one cultural highlight in ${location}, then explore the surrounding streets`,
+    ][dayVariant];
+
+    const flexibleAfternoon = [
+      `Explore one of ${location}'s highlights at your own pace`,
+      `Keep the afternoon flexible for a neighborhood, viewpoint, or café`,
+      `Leave room for a spontaneous local experience in ${location}`,
+    ][dayVariant];
+
     daily_schedule.push({
       day: dayIndex + 1,
       date: addDays(trip.start_date, dayIndex),
@@ -908,21 +938,23 @@ function buildFallbackItinerary(trip: TripData, totalDays: number): Partial<Itin
           : isTransferDay
           ? `Transfer into ${location}, settle in, and take an easy orientation walk`
           : hasNature
-          ? `Morning exploration of ${location}'s natural surroundings — golden hour photography${attrs && attrs.photography >= 85 ? ` (photography score: ${attrs.photography}/100)` : ""}`
+          ? natureMorning
           : hasCulture
-          ? `Visit the historic center of ${location} — local market and architecture walk${attrs && attrs.culture >= 85 ? ` (culture score: ${attrs.culture}/100)` : ""}`
+          ? cultureMorning
           : `Orient in ${location}, check in, and take a neighborhood walk`,
         afternoon: isDepartureDay
           ? `Keep the afternoon open for a final meal before leaving`
           : hasFood
           ? `Local food market and culinary experience — regional specialties${attrs && attrs.food >= 85 ? ` (food scene rated ${attrs.food}/100)` : ""}`
-          : `Explore the highlights of ${location} at your own pace`,
+          : flexibleAfternoon,
         evening: isDepartureDay
           ? `Early dinner or airport transfer from ${location}`
           : `Dinner at a locally-recommended restaurant — ${hasFood ? "prioritize off-menu local spots" : "relaxed evening"}`,
-        food_recommendation: attrs && attrs.food >= 80
-          ? `${location} has a strong local food scene (${attrs.food}/100). Ask your accommodation for their single best local recommendation.`
-          : `Ask your accommodation for the one restaurant they'd send a trusted friend to.`,
+        food_recommendation: hasFood
+          ? attrs && attrs.food >= 80
+            ? `${location} has a strong local food scene (${attrs.food}/100). Ask your accommodation for their single best local recommendation.`
+            : `Ask your accommodation for the one restaurant they'd send a trusted friend to.`
+          : "",
         transport: isArrivalDay
           ? `Arrive from ${trip.starting_location}`
           : isTransferDay
@@ -961,7 +993,7 @@ function buildFallbackItinerary(trip: TripData, totalDays: number): Partial<Itin
   });
 
   return {
-    trip_strategy: `A ${totalDays}-day journey through ${trip.destination} with ${selection.base_count} bases selected by deterministic interest, budget, pace, season, crowd, and transport fit.`,
+    trip_strategy: `A ${totalDays}-day journey through ${trip.destination} with ${selection.base_count} base${selection.base_count === 1 ? "" : "s"} selected by deterministic interest, budget, pace, season, crowd, and transport fit.`,
     route,
     destinations: scoredDestinations,
     daily_schedule,
