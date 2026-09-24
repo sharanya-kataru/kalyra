@@ -262,17 +262,40 @@ function applyFlightTimingContext(itinerary: ItineraryData, result: FlightSearch
   };
 }
 
-async function searchFlightCandidates(
-  inputs: FlightSearchInput[]
+export async function searchFlightCandidates(
+  inputs: FlightSearchInput[],
+  search: typeof searchFlights = searchFlights,
+  comparisonDeadlineMs = 8_000
 ): Promise<FlightSearchResult | null> {
   if (inputs.length === 0) return null;
 
   const liveResults: FlightSearchResult[] = [];
   let bestEstimatedResult: FlightSearchResult | null = null;
 
-  const results = await Promise.all(
-    inputs.map((input) => searchFlights(input, false))
-  );
+  // Retain input order for score ties, irrespective of completion order.
+  const completed: Array<FlightSearchResult | undefined> = new Array(inputs.length);
+  let acceptingResults = true;
+  let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+  const deadlineAt = performance.now() + comparisonDeadlineMs;
+  try {
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        deadlineTimer = setTimeout(resolve, comparisonDeadlineMs);
+      }),
+      Promise.all(inputs.map(async (input, index) => {
+        try {
+          const result = await search(input, false);
+          if (acceptingResults && performance.now() < deadlineAt) completed[index] = result;
+        } catch {
+          // A failed candidate must not prevent other routes from being compared.
+        }
+      })),
+    ]);
+  } finally {
+    acceptingResults = false;
+    clearTimeout(deadlineTimer);
+  }
+  const results = completed.filter((result): result is FlightSearchResult => result !== undefined);
 
   for (const result of results) {
       if (
@@ -334,7 +357,7 @@ async function searchFlightCandidates(
 
   const fallbackInput = inputs[0];
 
-  const nearbyResult = await searchFlights(fallbackInput, true);
+  const nearbyResult = await search(fallbackInput, true);
 
   if (
     nearbyResult.status === "unavailable" &&
