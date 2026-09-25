@@ -3,6 +3,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { TripProvider } from '@/context/TripContext';
+import { AuthProvider } from '@/context/AuthContext';
 import NotFound from '@/pages/not-found';
 import Landing from '@/pages/landing';
 import Plan from '@/pages/plan';
@@ -15,7 +16,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <TripProvider>
+        <AuthProvider>
+          <TripProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
             <Switch>
               <Route path="/" component={Landing} />
@@ -25,8 +27,9 @@ function App() {
               <Route component={NotFound} />
             </Switch>
           </WouterRouter>
-          <Toaster />
-        </TripProvider>
+            <Toaster />
+          </TripProvider>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

@@ -2,9 +2,13 @@ import { useState } from 'react';
 import { Link } from 'wouter';
 import { ArrowUpRight, Menu, X } from 'lucide-react';
 import { Logo } from './Logo';
+import { AuthDialog } from './AuthDialog';
+import { useAuth } from '@/context/AuthContext';
 
 export function Header({ dark = false }: { dark?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const { user, isLoading, logout } = useAuth();
   return (
     <header className={`absolute inset-x-0 top-0 z-30 ${dark ? 'text-[#f5f0e6]' : 'text-[#203b47]'}`}>
       <div className="mx-auto flex max-w-[1180px] items-center justify-between px-5 py-5 sm:px-8 sm:py-7">
@@ -16,6 +20,30 @@ export function Header({ dark = false }: { dark?: boolean }) {
           <a href="#example-trip" className="opacity-80 transition hover:opacity-100" data-testid="link-example-trip">
             Example trip
           </a>
+          {!isLoading && (
+            user ? (
+              <div className="flex items-center gap-4">
+                <span className="max-w-[180px] truncate text-xs opacity-70">
+                  {user.email}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void logout()}
+                  className="opacity-80 transition hover:opacity-100"
+                >
+                  Log out
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAuthOpen(true)}
+                className="opacity-80 transition hover:opacity-100"
+              >
+                Log in
+              </button>
+            )
+          )}
           <Link
             href="/plan"
             className={`rounded-full px-5 py-2.5 transition ${
@@ -55,11 +83,45 @@ export function Header({ dark = false }: { dark?: boolean }) {
           >
             Example trip
           </a>
-          <Link href="/plan" className="block px-3 py-3 text-sm font-semibold" data-testid="link-mobile-start">
+          {!isLoading && (
+            user ? (
+              <div className="border-b border-current/10 px-3 py-3">
+                <p className="truncate text-xs opacity-70">{user.email}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void logout();
+                  }}
+                  className="mt-2 text-sm font-semibold"
+                >
+                  Log out
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setAuthOpen(true);
+                }}
+                className="block w-full border-b border-current/10 px-3 py-3 text-left text-sm"
+              >
+                Log in
+              </button>
+            )
+          )}
+          <Link
+            href="/plan"
+            className="block px-3 py-3 text-sm font-semibold"
+            data-testid="link-mobile-start"
+            onClick={() => setMenuOpen(false)}
+          >
             Start planning <ArrowUpRight className="ml-1 inline" size={14} />
           </Link>
         </div>
       )}
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
     </header>
   );
 }
