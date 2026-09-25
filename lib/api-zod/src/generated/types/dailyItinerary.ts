@@ -7,9 +7,11 @@
  */
 import type { DailyActivityPart } from './dailyActivityPart';
 import type { DailyTransportation } from './dailyTransportation';
+import type { WalkingLeg } from './walkingLeg';
 import type { WeatherSummary } from './weatherSummary';
 
 export interface DailyItinerary {
+  walking_legs?: WalkingLeg[];
   day: number;
   date: string;
   location: string;

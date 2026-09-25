@@ -111,18 +111,45 @@ export interface DailySchedule {
   activities: DailyActivity;
 }
 
+export interface ActivityPlace {
+  name: string;
+  location: string;
+  lat: number;
+  lon: number;
+}
+
 export interface DailyActivityPart {
+  place?: ActivityPlace;
   activity: string;
   description: string;
   /** @minimum 0 */
   estimated_cost_usd: number;
 }
 
-export interface DailyTransportation {
-  mode: string;
-  details: string;
-  duration: string;
-}
+export type WalkingLegFrom = typeof WalkingLegFrom[keyof typeof WalkingLegFrom];
+
+
+export const WalkingLegFrom = {
+  morning: 'morning',
+  afternoon: 'afternoon',
+  evening: 'evening',
+} as const;
+
+export type WalkingLegTo = typeof WalkingLegTo[keyof typeof WalkingLegTo];
+
+
+export const WalkingLegTo = {
+  morning: 'morning',
+  afternoon: 'afternoon',
+  evening: 'evening',
+} as const;
+
+export type WalkingLegMode = typeof WalkingLegMode[keyof typeof WalkingLegMode];
+
+
+export const WalkingLegMode = {
+  walk: 'walk',
+} as const;
 
 export type DataSourceMetadataLabel = typeof DataSourceMetadataLabel[keyof typeof DataSourceMetadataLabel];
 
@@ -143,6 +170,23 @@ export interface DataSourceMetadata {
   label: DataSourceMetadataLabel;
 }
 
+export interface WalkingLeg {
+  from: WalkingLegFrom;
+  to: WalkingLegTo;
+  from_place_key: string;
+  to_place_key: string;
+  mode: WalkingLegMode;
+  duration_seconds: number;
+  distance_meters: number;
+  source_metadata: DataSourceMetadata;
+}
+
+export interface DailyTransportation {
+  mode: string;
+  details: string;
+  duration: string;
+}
+
 export interface WeatherSummary {
   location: string;
   date: string;
@@ -155,6 +199,7 @@ export interface WeatherSummary {
 }
 
 export interface DailyItinerary {
+  walking_legs?: WalkingLeg[];
   day: number;
   date: string;
   location: string;

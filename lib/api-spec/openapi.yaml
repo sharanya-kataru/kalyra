@@ -451,6 +451,8 @@ components:
     DailyActivityPart:
       type: object
       properties:
+        place:
+          $ref: "#/components/schemas/ActivityPlace"
         activity:
           type: string
         description:
@@ -462,6 +464,43 @@ components:
         - activity
         - description
         - estimated_cost_usd
+
+    ActivityPlace:
+      type: object
+      required: [name, location, lat, lon]
+      properties:
+        name:
+          type: string
+        location:
+          type: string
+        lat:
+          type: number
+        lon:
+          type: number
+
+    WalkingLeg:
+      type: object
+      required: [from, to, from_place_key, to_place_key, mode, duration_seconds, distance_meters, source_metadata]
+      properties:
+        from:
+          type: string
+          enum: [morning, afternoon, evening]
+        to:
+          type: string
+          enum: [morning, afternoon, evening]
+        from_place_key:
+          type: string
+        to_place_key:
+          type: string
+        mode:
+          type: string
+          enum: [walk]
+        duration_seconds:
+          type: number
+        distance_meters:
+          type: number
+        source_metadata:
+          $ref: "#/components/schemas/DataSourceMetadata"
 
     DailyTransportation:
       type: object
@@ -480,6 +519,10 @@ components:
     DailyItinerary:
       type: object
       properties:
+        walking_legs:
+          type: array
+          items:
+            $ref: "#/components/schemas/WalkingLeg"
         day:
           type: integer
         date:

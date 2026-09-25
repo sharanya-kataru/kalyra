@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import {
   ArrowUpRight,
@@ -20,6 +20,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
+import { walkingLabel } from '@/lib/walking-label';
 import { TripMap } from '@/components/TripMap';
 import { useTripContext } from '@/context/TripContext';
 import { useModifyItinerary, useRefreshLiveData } from '@workspace/api-client-react';
@@ -690,13 +691,27 @@ export default function Trip() {
                   {openDay === i && (
                     <div className="border-t border-[#e2ddd2] px-5 pb-5 pt-4 sm:pl-[86px]">
                       <div className="space-y-4">
-                        {(['morning', 'afternoon', 'evening'] as const).map((period) => (
-                          <div key={period}>
+                        {(['morning', 'afternoon', 'evening'] as const).map((period, index, periods) => {
+                          const previousPeriod = periods[index - 1];
+                          const walkingLeg = day.walking_legs?.find((leg) =>
+                            leg.mode === 'walk' && leg.from === previousPeriod && leg.to === period
+                          );
+                          return (
+                          <Fragment key={period}>
+                            {walkingLeg && (
+                              <div data-testid={`walking-leg-${day.day}-${walkingLeg.from}-${walkingLeg.to}`} className="border-l-2 border-dashed border-[#bb7a52]/40 py-2 pl-3 text-xs text-[#34594b]">
+                                <span aria-hidden="true">↓ 🚶 </span>{walkingLabel(walkingLeg.duration_seconds, walkingLeg.distance_meters)}
+                                <span className="mt-1 block text-[11px] text-[#65706d]">Geoapify route estimate · to {period}</span>
+                              </div>
+                            )}
+                          <div>
                             <p className="text-xs font-semibold capitalize text-[#bb7a52]">{period}</p>
                             <p className="mt-1 text-sm font-semibold">{day[period].activity}</p>
                             <p className="mt-1 text-sm text-[#65706d]">{day[period].description}</p>
                           </div>
-                        ))}
+                          </Fragment>
+                          );
+                        })}
                         <div>
                           <p className="text-xs font-semibold text-[#bb7a52]">Food recommendations</p>
                           <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-[#65706d]">

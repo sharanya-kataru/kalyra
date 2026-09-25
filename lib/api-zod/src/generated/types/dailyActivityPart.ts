@@ -5,8 +5,10 @@
  * Kalyra Travel Experience Optimization API
  * OpenAPI spec version: 0.1.0
  */
+import type { ActivityPlace } from './activityPlace';
 
 export interface DailyActivityPart {
+  place?: ActivityPlace;
   activity: string;
   description: string;
   /** @minimum 0 */

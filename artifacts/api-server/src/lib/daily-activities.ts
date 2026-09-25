@@ -1,5 +1,6 @@
 import type { DailyItinerary, ItineraryData, TripData } from "./ai";
 import type { PlaceResult, PlacesProvider } from "./places";
+import { validPlace } from "./walking";
 
 const CATEGORY_LABELS: Record<string, string> = {
   "leisure.park": "A park",
@@ -95,7 +96,9 @@ export async function discoverDailyActivities(
       const place = pools.get(day.location)?.[cursor];
       if (!place) break;
       cursors.set(day.location, cursor + 1);
+      const coordinates = { name: place.name, location: day.location, lat: place.lat, lon: place.lon };
       updated[period] = {
+        ...(validPlace(coordinates) ? { place: coordinates } : {}),
         activity: place.name,
         description: formatPlaceDescription(place),
         estimated_cost_usd: day[period].estimated_cost_usd,

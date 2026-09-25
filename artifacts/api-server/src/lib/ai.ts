@@ -1,4 +1,5 @@
 import { logger } from "./logger";
+import { cleanWalkingData, validPlace, type ActivityPlace, type WalkingLeg } from "./walking";
 import {
   lookupDestination,
   destinationSummary,
@@ -119,6 +120,7 @@ export interface DailyActivity {
 }
 
 export interface DailyActivityPart {
+  place?: ActivityPlace;
   activity: string;
   description: string;
   estimated_cost_usd: number;
@@ -131,6 +133,7 @@ export interface DailyTransportation {
 }
 
 export interface DailyItinerary {
+  walking_legs?: WalkingLeg[];
   day: number;
   date: string;
   location: string;
@@ -295,6 +298,7 @@ function activityPart(
       activity: String(row.activity ?? fallbackActivity),
       description: String(row.description ?? fallbackDescription),
       estimated_cost_usd: sanitizeAmount(row.estimated_cost_usd, fallbackCost),
+      ...(validPlace(row.place) && row.place.name === String(row.activity ?? fallbackActivity) ? { place: row.place } : {}),
     };
   }
   return {
@@ -393,10 +397,11 @@ function normalizeDailyItinerary(
         dailyFallbackCost
       ),
       ...(weather ? { weather } : {}),
+      walking_legs: Array.isArray(rich.walking_legs) ? rich.walking_legs as WalkingLeg[] : [],
     });
   }
 
-  return result;
+  return result.map(cleanWalkingData);
 }
 
 function routeLocationForDay(route: RouteStop[], dayIndex: number): string {

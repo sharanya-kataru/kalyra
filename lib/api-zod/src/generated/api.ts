@@ -191,20 +191,55 @@ export const CreateTripResponse = zod.object({
   "estimated_cost_usd": zod.number().min(createTripResponseLatestItineraryOneDestinationsItemEstimatedCostUsdMin).optional()
 })),
   "daily_itinerary": zod.array(zod.object({
+  "walking_legs": zod.array(zod.object({
+  "from": zod.enum(['morning', 'afternoon', 'evening']),
+  "to": zod.enum(['morning', 'afternoon', 'evening']),
+  "from_place_key": zod.string(),
+  "to_place_key": zod.string(),
+  "mode": zod.enum(['walk']),
+  "duration_seconds": zod.number(),
+  "distance_meters": zod.number(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+})).optional(),
   "day": zod.number(),
   "date": zod.string(),
   "location": zod.string(),
   "morning": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(createTripResponseLatestItineraryOneDailyItineraryItemMorningEstimatedCostUsdMin)
 }),
   "afternoon": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(createTripResponseLatestItineraryOneDailyItineraryItemAfternoonEstimatedCostUsdMin)
 }),
   "evening": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(createTripResponseLatestItineraryOneDailyItineraryItemEveningEstimatedCostUsdMin)
@@ -587,20 +622,55 @@ export const GetTripResponse = zod.object({
   "estimated_cost_usd": zod.number().min(getTripResponseLatestItineraryOneDestinationsItemEstimatedCostUsdMin).optional()
 })),
   "daily_itinerary": zod.array(zod.object({
+  "walking_legs": zod.array(zod.object({
+  "from": zod.enum(['morning', 'afternoon', 'evening']),
+  "to": zod.enum(['morning', 'afternoon', 'evening']),
+  "from_place_key": zod.string(),
+  "to_place_key": zod.string(),
+  "mode": zod.enum(['walk']),
+  "duration_seconds": zod.number(),
+  "distance_meters": zod.number(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+})).optional(),
   "day": zod.number(),
   "date": zod.string(),
   "location": zod.string(),
   "morning": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(getTripResponseLatestItineraryOneDailyItineraryItemMorningEstimatedCostUsdMin)
 }),
   "afternoon": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(getTripResponseLatestItineraryOneDailyItineraryItemAfternoonEstimatedCostUsdMin)
 }),
   "evening": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(getTripResponseLatestItineraryOneDailyItineraryItemEveningEstimatedCostUsdMin)
@@ -1026,20 +1096,55 @@ export const GenerateItineraryResponse = zod.object({
   "estimated_cost_usd": zod.number().min(generateItineraryResponseDestinationsItemEstimatedCostUsdMin).optional()
 })),
   "daily_itinerary": zod.array(zod.object({
+  "walking_legs": zod.array(zod.object({
+  "from": zod.enum(['morning', 'afternoon', 'evening']),
+  "to": zod.enum(['morning', 'afternoon', 'evening']),
+  "from_place_key": zod.string(),
+  "to_place_key": zod.string(),
+  "mode": zod.enum(['walk']),
+  "duration_seconds": zod.number(),
+  "distance_meters": zod.number(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+})).optional(),
   "day": zod.number(),
   "date": zod.string(),
   "location": zod.string(),
   "morning": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(generateItineraryResponseDailyItineraryItemMorningEstimatedCostUsdMin)
 }),
   "afternoon": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(generateItineraryResponseDailyItineraryItemAfternoonEstimatedCostUsdMin)
 }),
   "evening": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(generateItineraryResponseDailyItineraryItemEveningEstimatedCostUsdMin)
@@ -1405,20 +1510,55 @@ export const RefreshLiveDataResponse = zod.object({
   "estimated_cost_usd": zod.number().min(refreshLiveDataResponseDestinationsItemEstimatedCostUsdMin).optional()
 })),
   "daily_itinerary": zod.array(zod.object({
+  "walking_legs": zod.array(zod.object({
+  "from": zod.enum(['morning', 'afternoon', 'evening']),
+  "to": zod.enum(['morning', 'afternoon', 'evening']),
+  "from_place_key": zod.string(),
+  "to_place_key": zod.string(),
+  "mode": zod.enum(['walk']),
+  "duration_seconds": zod.number(),
+  "distance_meters": zod.number(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+})).optional(),
   "day": zod.number(),
   "date": zod.string(),
   "location": zod.string(),
   "morning": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(refreshLiveDataResponseDailyItineraryItemMorningEstimatedCostUsdMin)
 }),
   "afternoon": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(refreshLiveDataResponseDailyItineraryItemAfternoonEstimatedCostUsdMin)
 }),
   "evening": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(refreshLiveDataResponseDailyItineraryItemEveningEstimatedCostUsdMin)
@@ -1891,20 +2031,55 @@ export const ModifyItineraryResponse = zod.object({
   "estimated_cost_usd": zod.number().min(modifyItineraryResponseItineraryDestinationsItemEstimatedCostUsdMin).optional()
 })),
   "daily_itinerary": zod.array(zod.object({
+  "walking_legs": zod.array(zod.object({
+  "from": zod.enum(['morning', 'afternoon', 'evening']),
+  "to": zod.enum(['morning', 'afternoon', 'evening']),
+  "from_place_key": zod.string(),
+  "to_place_key": zod.string(),
+  "mode": zod.enum(['walk']),
+  "duration_seconds": zod.number(),
+  "distance_meters": zod.number(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+})).optional(),
   "day": zod.number(),
   "date": zod.string(),
   "location": zod.string(),
   "morning": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(modifyItineraryResponseItineraryDailyItineraryItemMorningEstimatedCostUsdMin)
 }),
   "afternoon": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(modifyItineraryResponseItineraryDailyItineraryItemAfternoonEstimatedCostUsdMin)
 }),
   "evening": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
   "activity": zod.string(),
   "description": zod.string(),
   "estimated_cost_usd": zod.number().min(modifyItineraryResponseItineraryDailyItineraryItemEveningEstimatedCostUsdMin)

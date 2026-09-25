@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './activityPlace';
 export * from './alternativeStrategy';
 export * from './budgetItem';
 export * from './budgetSummary';
@@ -48,4 +49,8 @@ export * from './tripInput';
 export * from './tripModification';
 export * from './tripModificationInput';
 export * from './tripRecommendation';
+export * from './walkingLeg';
+export * from './walkingLegFrom';
+export * from './walkingLegMode';
+export * from './walkingLegTo';
 export * from './weatherSummary';

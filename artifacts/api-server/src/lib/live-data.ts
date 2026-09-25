@@ -1,4 +1,5 @@
 import type { ItineraryData, TripData } from "./ai";
+import { enrichWalkingLegs } from "./walking";
 import {
   searchFlights,
   type FlightSearchInput,
@@ -486,5 +487,5 @@ const weatherResults = await weatherPromise;
       ...(timingContext.planningNote ? { planning_note: timingContext.planningNote } : {}),
     },
   };
-  return enriched;
+  return enrichWalkingLegs(enriched);
 }
