@@ -23,6 +23,13 @@ export function Header({ dark = false }: { dark?: boolean }) {
           {!isLoading && (
             user ? (
               <div className="flex items-center gap-4">
+                <Link
+                  href="/my-trips"
+                  className="opacity-80 transition hover:opacity-100"
+                  data-testid="link-my-trips"
+                >
+                  My Trips
+                </Link>
                 <span className="max-w-[180px] truncate text-xs opacity-70">
                   {user.email}
                 </span>
@@ -86,7 +93,15 @@ export function Header({ dark = false }: { dark?: boolean }) {
           {!isLoading && (
             user ? (
               <div className="border-b border-current/10 px-3 py-3">
-                <p className="truncate text-xs opacity-70">{user.email}</p>
+                <Link
+                  href="/my-trips"
+                  className="block border-b border-current/10 pb-3 text-sm font-semibold"
+                  onClick={() => setMenuOpen(false)}
+                  data-testid="link-mobile-my-trips"
+                >
+                  My Trips
+                </Link>
+                <p className="mt-3 truncate text-xs opacity-70">{user.email}</p>
                 <button
                   type="button"
                   onClick={() => {

@@ -9,6 +9,7 @@ import Landing from '@/pages/landing';
 import Plan from '@/pages/plan';
 import Analysis from '@/pages/analysis';
 import Trip from '@/pages/trip';
+import MyTrips from '@/pages/my-trips';
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,8 @@ function App() {
               <Route path="/plan" component={Plan} />
               <Route path="/analysis" component={Analysis} />
               <Route path="/trip" component={Trip} />
+              <Route path="/trip/:id" component={Trip} />
+              <Route path="/my-trips" component={MyTrips} />
               <Route component={NotFound} />
             </Switch>
           </WouterRouter>

@@ -1,5 +1,5 @@
 import { Fragment, useState, useEffect } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, useRoute } from 'wouter';
 import {
   ArrowUpRight,
   Check,
@@ -23,7 +23,14 @@ import { Logo } from '@/components/Logo';
 import { walkingLabel } from '@/lib/walking-label';
 import { TripMap } from '@/components/TripMap';
 import { useTripContext } from '@/context/TripContext';
-import { useModifyItinerary, useRefreshLiveData } from '@workspace/api-client-react';
+import { useAuth } from '@/context/AuthContext';
+import { AuthDialog } from '@/components/AuthDialog';
+import {
+  useModifyItinerary,
+  useRefreshLiveData,
+  useSaveTrip,
+  useGetTrip,
+} from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
 import type { ChangeMade, TripHealthScore } from '@workspace/api-client-react';
 
@@ -298,6 +305,9 @@ export default function Trip() {
     return () => cancelAnimationFrame(frame);
   }, []);
   const [, setLocation] = useLocation();
+  const [, routeParams] = useRoute('/trip/:id');
+  const savedTripId = routeParams?.id ?? null;
+
   const [tab, setTab] = useState<'overview' | 'days' | 'practical'>('overview');
   const [filter, setFilter] = useState('All days');
   const [checked, setChecked] = useState<string[]>([]);
@@ -306,18 +316,99 @@ export default function Trip() {
   const [showChat, setShowChat] = useState(false);
   const [modificationHistory, setModificationHistory] = useState<ModificationHistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [saveAfterAuth, setSaveAfterAuth] = useState(false);
+  const [saved, setSaved] = useState(false);
 
-  const { tripId, itinerary, setItinerary, planData } = useTripContext();
+    const {
+    tripId,
+    setTripId,
+    itinerary,
+    setItinerary,
+    planData,
+    setPlanData,
+  } = useTripContext();
+  const { user, logout } = useAuth();
+
+  const tripToLoadId = savedTripId ?? tripId;
+  const savedTripQuery = useGetTrip(tripToLoadId ?? '', {
+  query: {
+    queryKey: ['/api/trips', tripToLoadId],
+    enabled: Boolean(savedTripId) && !itinerary,
+  },
+});
   const travelerCount = Math.max(1, Number(planData?.travelerCount) || 1);
   const { toast } = useToast();
   const modifyItinerary = useModifyItinerary();
   const refreshLiveData = useRefreshLiveData();
+  const saveTrip = useSaveTrip();
+
+    useEffect(() => {
+    if (!savedTripId || itinerary || !savedTripQuery.data) return;
+
+    const trip = savedTripQuery.data;
+
+    setTripId(trip.id);
+    setPlanData({
+      destination: trip.destination,
+      startingLocation: trip.starting_location,
+      startDate: trip.start_date,
+      endDate: trip.end_date,
+      travelerCount: String(trip.traveler_count),
+      budget: String(trip.budget),
+      budgetPreference: trip.budget_preference,
+      travelerProfile: trip.traveler_profile,
+    });
+
+    if (trip.latest_itinerary) {
+      setItinerary(trip.latest_itinerary);
+    }
+    setSaved(true);
+  }, [
+    savedTripId,
+    savedTripQuery.data,
+    itinerary,
+    setTripId,
+    setPlanData,
+    setItinerary,
+  ]);
 
   useEffect(() => {
+    if (savedTripId) return;
     if (!tripId || !itinerary) {
       setLocation('/plan');
     }
-  }, [tripId, itinerary]);
+  }, [savedTripId, tripId, itinerary, setLocation]);
+
+  if (savedTripId && savedTripQuery.isLoading) {
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[#f3f0e8] text-[#203b47]">
+        <p className="font-mono-custom text-xs uppercase tracking-[.16em] text-[#65706d]">
+          Loading your trip…
+        </p>
+      </div>
+    );
+  }
+
+  if (savedTripId && savedTripQuery.isError) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#f3f0e8] px-5 text-center text-[#203b47]">
+        <p className="font-mono-custom text-[10px] uppercase tracking-[.16em] text-[#bb7a52]">
+          Saved trip
+        </p>
+        <h1 className="mt-3 font-display text-3xl">
+          We couldn't load this trip
+        </h1>
+        <button
+          type="button"
+          onClick={() => setLocation('/my-trips')}
+          className="mt-6 rounded-full bg-[#203b47] px-5 py-2.5 text-xs font-semibold text-[#f5f0e6]"
+        >
+          Back to My Trips
+        </button>
+      </div>
+    );
+  }
 
   if (!tripId || !itinerary) {
     return null;
@@ -377,6 +468,66 @@ export default function Trip() {
     );
   };
 
+  const handleSaveTrip = () => {
+    if (!tripId || saved || saveTrip.isPending) return;
+
+    if (!user) {
+      setSaveAfterAuth(true);
+      setAuthOpen(true);
+      return;
+    }
+
+    saveTrip.mutate(
+      { id: tripId },
+      {
+        onSuccess: () => {
+          setSaved(true);
+          toast({
+            title: 'Trip saved',
+            description: 'You can now find this trip in My Trips.',
+          });
+        },
+        onError: (error) => {
+          console.error('Failed to save trip:', error);
+          toast({
+            title: 'Could not save trip',
+            description: 'Please try again.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
+
+  useEffect(() => {
+    if (!saveAfterAuth || !user || !tripId || saved || saveTrip.isPending) {
+      return;
+    }
+
+    setSaveAfterAuth(false);
+
+    saveTrip.mutate(
+      { id: tripId },
+      {
+        onSuccess: () => {
+          setSaved(true);
+          toast({
+            title: 'Trip saved',
+            description: 'You can now find this trip in My Trips.',
+          });
+        },
+        onError: (error) => {
+          console.error('Failed to save trip after authentication:', error);
+          toast({
+            title: 'Could not save trip',
+            description: 'Please try again.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  }, [saveAfterAuth, user, tripId, saved, saveTrip, toast]);
+
   const handleRefreshLiveData = () => {
     if (!tripId || refreshLiveData.isPending) return;
     refreshLiveData.mutate(
@@ -412,16 +563,63 @@ export default function Trip() {
         <div className="mx-auto flex max-w-[1220px] items-center justify-between px-5 py-5 sm:px-8">
           <Logo />
           <div className="hidden items-center gap-3 sm:flex">
-            <span className="h-2 w-2 rounded-full bg-[#6b9c7b]" />
-            <span className="text-xs text-[#65706d]">Your trip is saved in this session</span>
+            <span className={`h-2 w-2 rounded-full ${saved ? 'bg-[#6b9c7b]' : 'bg-[#bb7a52]'}`} />
+            <span className="text-xs text-[#65706d]">
+              {saved ? 'Saved to your account' : 'Trip is ready to save'}
+            </span>
           </div>
-          <button
-            onClick={() => setLocation('/plan')}
-            className="rounded-full border border-[#c9c1b2] px-4 py-2 text-xs font-semibold transition hover:border-[#203b47]"
-            data-testid="link-new-trip"
-          >
-            New trip
-          </button>
+
+          <div className="flex items-center gap-2">
+            {!saved && (
+              <button
+                type="button"
+                onClick={handleSaveTrip}
+                disabled={saveTrip.isPending}
+                className="rounded-full border border-[#c9c1b2] px-4 py-2 text-xs font-semibold transition hover:border-[#203b47]"
+              >
+                {saveTrip.isPending ? 'Saving…' : 'Save trip'}
+              </button>
+            )}
+
+            {user && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setLocation('/my-trips')}
+                  className="hidden rounded-full px-3 py-2 text-xs font-semibold transition hover:bg-[#e8e3d8] sm:block"
+                >
+                  My Trips
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => logout()}
+                  className="hidden rounded-full px-3 py-2 text-xs text-[#65706d] transition hover:text-[#203b47] sm:block"
+                >
+                  Log out
+                </button>
+              </>
+            )}
+
+            {!user && (
+              <button
+                type="button"
+                onClick={() => setAuthOpen(true)}
+                className="hidden rounded-full px-3 py-2 text-xs font-semibold transition hover:bg-[#e8e3d8] sm:block"
+              >
+                Log in
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setLocation('/plan')}
+              className="rounded-full border border-[#c9c1b2] px-4 py-2 text-xs font-semibold transition hover:border-[#203b47]"
+              data-testid="link-new-trip"
+            >
+              New trip
+            </button>
+          </div>
         </div>
       </header>
 
@@ -972,6 +1170,11 @@ export default function Trip() {
           )}
         </div>
       </div>
+
+      <AuthDialog
+        open={authOpen}
+        onOpenChange={setAuthOpen}
+      />
     </div>
   );
 }
