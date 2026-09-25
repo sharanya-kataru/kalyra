@@ -92,6 +92,434 @@ export const ListDestinationsResponse = zod.object({
 
 
 /**
+ * @summary List trips owned by the current user
+ */
+
+
+
+export const listTripsResponseLatestItineraryOneDestinationsItemEstimatedCostUsdMin = 0;
+
+export const listTripsResponseLatestItineraryOneDailyItineraryItemMorningEstimatedCostUsdMin = 0;
+
+export const listTripsResponseLatestItineraryOneDailyItineraryItemAfternoonEstimatedCostUsdMin = 0;
+
+export const listTripsResponseLatestItineraryOneDailyItineraryItemEveningEstimatedCostUsdMin = 0;
+
+export const listTripsResponseLatestItineraryOneDailyItineraryItemEstimatedDailyCostUsdMin = 0;
+
+export const listTripsResponseLatestItineraryOneBudgetSummaryTotalBudgetMin = 0;
+
+export const listTripsResponseLatestItineraryOneBudgetSummaryFlightsEstimatedMin = 0;
+
+export const listTripsResponseLatestItineraryOneBudgetSummaryFlightsLiveMin = 0;
+
+export const listTripsResponseLatestItineraryOneBudgetSummaryAccommodationEstimatedMin = 0;
+
+export const listTripsResponseLatestItineraryOneBudgetSummaryTransportationEstimatedMin = 0;
+
+export const listTripsResponseLatestItineraryOneBudgetSummaryFoodEstimatedMin = 0;
+
+export const listTripsResponseLatestItineraryOneBudgetSummaryActivitiesEstimatedMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataLocationsItemLatMin = -90;
+export const listTripsResponseLatestItineraryOneLiveDataLocationsItemLatMax = 90;
+
+export const listTripsResponseLatestItineraryOneLiveDataLocationsItemLonMin = -180;
+export const listTripsResponseLatestItineraryOneLiveDataLocationsItemLonMax = 180;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemTotalPriceUsdMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemOutboundDurationMinutesMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemOutboundSegmentsItemDurationMinutesMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemInboundDurationMinutesMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemInboundSegmentsItemDurationMinutesMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemStopCountMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemTotalDurationMinutesOneMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneTotalPriceUsdMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneOutboundDurationMinutesMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneOutboundSegmentsItemDurationMinutesMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneInboundDurationMinutesMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneInboundSegmentsItemDurationMinutesMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneStopCountMin = 0;
+
+export const listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneTotalDurationMinutesOneMin = 0;
+
+export const listTripsResponseLatestItineraryOneHealthScoreOneOverallMin = 0;
+export const listTripsResponseLatestItineraryOneHealthScoreOneOverallMax = 100;
+
+export const listTripsResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMin = 0;
+export const listTripsResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMax = 100;
+
+export const listTripsResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMin = 0;
+export const listTripsResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMax = 100;
+
+export const listTripsResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMin = 0;
+export const listTripsResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMax = 100;
+
+export const listTripsResponseLatestItineraryOneHealthScoreOneUniquenessScoreMin = 0;
+export const listTripsResponseLatestItineraryOneHealthScoreOneUniquenessScoreMax = 100;
+
+export const listTripsResponseLatestItineraryOneHealthScoreOnePacingScoreMin = 0;
+export const listTripsResponseLatestItineraryOneHealthScoreOnePacingScoreMax = 100;
+
+
+
+export const ListTripsResponseItem = zod.object({
+  "id": zod.string(),
+  "destination": zod.string(),
+  "starting_location": zod.string(),
+  "start_date": zod.string(),
+  "end_date": zod.string(),
+  "traveler_count": zod.number(),
+  "budget": zod.number().optional(),
+  "currency": zod.enum(['USD']).optional(),
+  "budget_preference": zod.string(),
+  "traveler_profile": zod.object({
+  "interests": zod.array(zod.string()),
+  "travel_style": zod.string(),
+  "preferences": zod.array(zod.string())
+}),
+  "latest_itinerary": zod.union([zod.object({
+  "id": zod.string(),
+  "trip_id": zod.string(),
+  "currency": zod.enum(['USD']),
+  "total_days": zod.number().min(1),
+  "total_nights": zod.number().min(1),
+  "trip_strategy": zod.string(),
+  "route": zod.array(zod.object({
+  "why_selected": zod.string().optional(),
+  "experience_score": zod.number().optional(),
+  "location": zod.string(),
+  "nights": zod.number(),
+  "transport_to_next": zod.string().nullable(),
+  "duration_hours": zod.number().nullable()
+})),
+  "destinations": zod.array(zod.object({
+  "name": zod.string(),
+  "score": zod.number(),
+  "reasoning": zod.string(),
+  "drawbacks": zod.string(),
+  "confidence": zod.enum(['high', 'limited']).optional(),
+  "score_breakdown": zod.object({
+  "interest_fit": zod.number(),
+  "budget_fit": zod.number(),
+  "pace_fit": zod.number(),
+  "season_fit": zod.number(),
+  "crowd_fit": zod.number(),
+  "transport_fit": zod.number(),
+  "uniqueness_fit": zod.number()
+}).optional(),
+  "matched_interests": zod.array(zod.string()).optional(),
+  "strengths": zod.array(zod.string()).optional(),
+  "tradeoffs": zod.array(zod.string()).optional(),
+  "recommended_nights": zod.number().min(1).optional(),
+  "why_selected": zod.string().optional(),
+  "experience_highlights": zod.array(zod.string()).optional(),
+  "estimated_cost_usd": zod.number().min(listTripsResponseLatestItineraryOneDestinationsItemEstimatedCostUsdMin).optional()
+})),
+  "daily_itinerary": zod.array(zod.object({
+  "walking_legs": zod.array(zod.object({
+  "from": zod.enum(['morning', 'afternoon', 'evening']),
+  "to": zod.enum(['morning', 'afternoon', 'evening']),
+  "from_place_key": zod.string(),
+  "to_place_key": zod.string(),
+  "mode": zod.enum(['walk']),
+  "duration_seconds": zod.number(),
+  "distance_meters": zod.number(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+})).optional(),
+  "day": zod.number(),
+  "date": zod.string(),
+  "location": zod.string(),
+  "morning": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(listTripsResponseLatestItineraryOneDailyItineraryItemMorningEstimatedCostUsdMin)
+}),
+  "afternoon": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(listTripsResponseLatestItineraryOneDailyItineraryItemAfternoonEstimatedCostUsdMin)
+}),
+  "evening": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(listTripsResponseLatestItineraryOneDailyItineraryItemEveningEstimatedCostUsdMin)
+}),
+  "food_recommendations": zod.array(zod.string()),
+  "transportation": zod.object({
+  "mode": zod.string(),
+  "details": zod.string(),
+  "duration": zod.string()
+}),
+  "estimated_daily_cost_usd": zod.number().min(listTripsResponseLatestItineraryOneDailyItineraryItemEstimatedDailyCostUsdMin),
+  "weather": zod.object({
+  "location": zod.string(),
+  "date": zod.string(),
+  "min_temperature_c": zod.number(),
+  "max_temperature_c": zod.number(),
+  "precipitation_probability": zod.union([zod.number(),zod.null()]),
+  "weather_code": zod.number(),
+  "description": zod.string(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+}).optional()
+})),
+  "daily_schedule": zod.array(zod.object({
+  "day": zod.number(),
+  "date": zod.string(),
+  "location": zod.string(),
+  "activities": zod.object({
+  "morning": zod.string(),
+  "afternoon": zod.string(),
+  "evening": zod.string(),
+  "food_recommendation": zod.string(),
+  "transport": zod.string(),
+  "estimated_cost": zod.number()
+})
+})),
+  "budget_breakdown": zod.array(zod.object({
+  "category": zod.string(),
+  "estimated_amount": zod.number(),
+  "description": zod.string(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+}).optional()
+})),
+  "budget_summary": zod.object({
+  "currency": zod.enum(['USD']),
+  "total_budget": zod.number().min(listTripsResponseLatestItineraryOneBudgetSummaryTotalBudgetMin),
+  "flights_estimated": zod.number().min(listTripsResponseLatestItineraryOneBudgetSummaryFlightsEstimatedMin),
+  "flights_live": zod.number().min(listTripsResponseLatestItineraryOneBudgetSummaryFlightsLiveMin).optional(),
+  "accommodation_estimated": zod.number().min(listTripsResponseLatestItineraryOneBudgetSummaryAccommodationEstimatedMin),
+  "transportation_estimated": zod.number().min(listTripsResponseLatestItineraryOneBudgetSummaryTransportationEstimatedMin),
+  "food_estimated": zod.number().min(listTripsResponseLatestItineraryOneBudgetSummaryFoodEstimatedMin),
+  "activities_estimated": zod.number().min(listTripsResponseLatestItineraryOneBudgetSummaryActivitiesEstimatedMin),
+  "total_estimated": zod.number(),
+  "remaining_budget": zod.number(),
+  "estimates_only": zod.boolean()
+}),
+  "live_data": zod.object({
+  "locations": zod.array(zod.object({
+  "location": zod.string(),
+  "lat": zod.number().min(listTripsResponseLatestItineraryOneLiveDataLocationsItemLatMin).max(listTripsResponseLatestItineraryOneLiveDataLocationsItemLatMax),
+  "lon": zod.number().min(listTripsResponseLatestItineraryOneLiveDataLocationsItemLonMin).max(listTripsResponseLatestItineraryOneLiveDataLocationsItemLonMax)
+})).optional(),
+  "flight_search": zod.object({
+  "status": zod.enum(['live', 'unavailable']),
+  "origin": zod.string(),
+  "destination": zod.string(),
+  "departure_date": zod.string(),
+  "return_date": zod.string(),
+  "offers": zod.array(zod.object({
+  "provider_offer_id": zod.string(),
+  "total_price_usd": zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemTotalPriceUsdMin),
+  "outbound": zod.object({
+  "carrier": zod.string().optional(),
+  "duration_minutes": zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemOutboundDurationMinutesMin).optional(),
+  "segments": zod.array(zod.object({
+  "origin_airport": zod.string(),
+  "destination_airport": zod.string(),
+  "departure_datetime": zod.union([zod.string(),zod.null()]),
+  "arrival_datetime": zod.union([zod.string(),zod.null()]),
+  "airline": zod.string().optional(),
+  "flight_number": zod.string().optional(),
+  "duration_minutes": zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemOutboundSegmentsItemDurationMinutesMin).optional()
+}))
+}),
+  "inbound": zod.object({
+  "carrier": zod.string().optional(),
+  "duration_minutes": zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemInboundDurationMinutesMin).optional(),
+  "segments": zod.array(zod.object({
+  "origin_airport": zod.string(),
+  "destination_airport": zod.string(),
+  "departure_datetime": zod.union([zod.string(),zod.null()]),
+  "arrival_datetime": zod.union([zod.string(),zod.null()]),
+  "airline": zod.string().optional(),
+  "flight_number": zod.string().optional(),
+  "duration_minutes": zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemInboundSegmentsItemDurationMinutesMin).optional()
+}))
+}),
+  "carriers": zod.array(zod.string()),
+  "stop_count": zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemStopCountMin),
+  "total_duration_minutes": zod.union([zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchOffersItemTotalDurationMinutesOneMin),zod.null()]),
+  "departure_datetime": zod.union([zod.string(),zod.null()]),
+  "arrival_datetime": zod.union([zod.string(),zod.null()]),
+  "booking_id": zod.string().optional(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+})),
+  "selected_offer": zod.union([zod.object({
+  "provider_offer_id": zod.string(),
+  "total_price_usd": zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneTotalPriceUsdMin),
+  "outbound": zod.object({
+  "carrier": zod.string().optional(),
+  "duration_minutes": zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneOutboundDurationMinutesMin).optional(),
+  "segments": zod.array(zod.object({
+  "origin_airport": zod.string(),
+  "destination_airport": zod.string(),
+  "departure_datetime": zod.union([zod.string(),zod.null()]),
+  "arrival_datetime": zod.union([zod.string(),zod.null()]),
+  "airline": zod.string().optional(),
+  "flight_number": zod.string().optional(),
+  "duration_minutes": zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneOutboundSegmentsItemDurationMinutesMin).optional()
+}))
+}),
+  "inbound": zod.object({
+  "carrier": zod.string().optional(),
+  "duration_minutes": zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneInboundDurationMinutesMin).optional(),
+  "segments": zod.array(zod.object({
+  "origin_airport": zod.string(),
+  "destination_airport": zod.string(),
+  "departure_datetime": zod.union([zod.string(),zod.null()]),
+  "arrival_datetime": zod.union([zod.string(),zod.null()]),
+  "airline": zod.string().optional(),
+  "flight_number": zod.string().optional(),
+  "duration_minutes": zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneInboundSegmentsItemDurationMinutesMin).optional()
+}))
+}),
+  "carriers": zod.array(zod.string()),
+  "stop_count": zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneStopCountMin),
+  "total_duration_minutes": zod.union([zod.number().min(listTripsResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneTotalDurationMinutesOneMin),zod.null()]),
+  "departure_datetime": zod.union([zod.string(),zod.null()]),
+  "arrival_datetime": zod.union([zod.string(),zod.null()]),
+  "booking_id": zod.string().optional(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+}),zod.null()]),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+}),
+  "recommendation_reason": zod.string().optional(),
+  "message": zod.string().optional()
+}),
+  "weather": zod.array(zod.object({
+  "location": zod.string(),
+  "date": zod.string(),
+  "min_temperature_c": zod.number(),
+  "max_temperature_c": zod.number(),
+  "precipitation_probability": zod.union([zod.number(),zod.null()]),
+  "weather_code": zod.number(),
+  "description": zod.string(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+})),
+  "refreshed_at": zod.string(),
+  "planning_note": zod.string().optional()
+}).optional(),
+  "reasoning": zod.string(),
+  "tradeoffs": zod.array(zod.object({
+  "description": zod.string(),
+  "impact": zod.string()
+})),
+  "health_score": zod.union([zod.object({
+  "overall": zod.number().min(listTripsResponseLatestItineraryOneHealthScoreOneOverallMin).max(listTripsResponseLatestItineraryOneHealthScoreOneOverallMax),
+  "overall_label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "experience_fit": zod.object({
+  "score": zod.number().min(listTripsResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMin).max(listTripsResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "transportation_efficiency": zod.object({
+  "score": zod.number().min(listTripsResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMin).max(listTripsResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "budget_efficiency": zod.object({
+  "score": zod.number().min(listTripsResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMin).max(listTripsResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "uniqueness": zod.object({
+  "score": zod.number().min(listTripsResponseLatestItineraryOneHealthScoreOneUniquenessScoreMin).max(listTripsResponseLatestItineraryOneHealthScoreOneUniquenessScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "pacing": zod.object({
+  "score": zod.number().min(listTripsResponseLatestItineraryOneHealthScoreOnePacingScoreMin).max(listTripsResponseLatestItineraryOneHealthScoreOnePacingScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score')
+}).describe('Structured multi-dimensional evaluation of the itinerary'),zod.null()]),
+  "version": zod.number(),
+  "created_at": zod.string()
+}),zod.null()]),
+  "created_at": zod.string()
+})
+export const ListTripsResponse = zod.array(ListTripsResponseItem)
+
+
+/**
  * @summary Create a new trip
  */
 export const CreateTripBody = zod.object({
@@ -953,6 +1381,437 @@ export const GetTripResponse = zod.object({
 }).describe('One dimension of the Trip Health Score'),
   "pacing": zod.object({
   "score": zod.number().min(getTripResponseLatestItineraryOneHealthScoreOnePacingScoreMin).max(getTripResponseLatestItineraryOneHealthScoreOnePacingScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score')
+}).describe('Structured multi-dimensional evaluation of the itinerary'),zod.null()]),
+  "version": zod.number(),
+  "created_at": zod.string()
+}),zod.null()]),
+  "created_at": zod.string()
+})
+
+
+/**
+ * @summary Save an anonymous trip to the current user's account
+ */
+export const SaveTripParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const saveTripResponseLatestItineraryOneDestinationsItemEstimatedCostUsdMin = 0;
+
+export const saveTripResponseLatestItineraryOneDailyItineraryItemMorningEstimatedCostUsdMin = 0;
+
+export const saveTripResponseLatestItineraryOneDailyItineraryItemAfternoonEstimatedCostUsdMin = 0;
+
+export const saveTripResponseLatestItineraryOneDailyItineraryItemEveningEstimatedCostUsdMin = 0;
+
+export const saveTripResponseLatestItineraryOneDailyItineraryItemEstimatedDailyCostUsdMin = 0;
+
+export const saveTripResponseLatestItineraryOneBudgetSummaryTotalBudgetMin = 0;
+
+export const saveTripResponseLatestItineraryOneBudgetSummaryFlightsEstimatedMin = 0;
+
+export const saveTripResponseLatestItineraryOneBudgetSummaryFlightsLiveMin = 0;
+
+export const saveTripResponseLatestItineraryOneBudgetSummaryAccommodationEstimatedMin = 0;
+
+export const saveTripResponseLatestItineraryOneBudgetSummaryTransportationEstimatedMin = 0;
+
+export const saveTripResponseLatestItineraryOneBudgetSummaryFoodEstimatedMin = 0;
+
+export const saveTripResponseLatestItineraryOneBudgetSummaryActivitiesEstimatedMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataLocationsItemLatMin = -90;
+export const saveTripResponseLatestItineraryOneLiveDataLocationsItemLatMax = 90;
+
+export const saveTripResponseLatestItineraryOneLiveDataLocationsItemLonMin = -180;
+export const saveTripResponseLatestItineraryOneLiveDataLocationsItemLonMax = 180;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemTotalPriceUsdMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemOutboundDurationMinutesMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemOutboundSegmentsItemDurationMinutesMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemInboundDurationMinutesMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemInboundSegmentsItemDurationMinutesMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemStopCountMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemTotalDurationMinutesOneMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneTotalPriceUsdMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneOutboundDurationMinutesMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneOutboundSegmentsItemDurationMinutesMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneInboundDurationMinutesMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneInboundSegmentsItemDurationMinutesMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneStopCountMin = 0;
+
+export const saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneTotalDurationMinutesOneMin = 0;
+
+export const saveTripResponseLatestItineraryOneHealthScoreOneOverallMin = 0;
+export const saveTripResponseLatestItineraryOneHealthScoreOneOverallMax = 100;
+
+export const saveTripResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMin = 0;
+export const saveTripResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMax = 100;
+
+export const saveTripResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMin = 0;
+export const saveTripResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMax = 100;
+
+export const saveTripResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMin = 0;
+export const saveTripResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMax = 100;
+
+export const saveTripResponseLatestItineraryOneHealthScoreOneUniquenessScoreMin = 0;
+export const saveTripResponseLatestItineraryOneHealthScoreOneUniquenessScoreMax = 100;
+
+export const saveTripResponseLatestItineraryOneHealthScoreOnePacingScoreMin = 0;
+export const saveTripResponseLatestItineraryOneHealthScoreOnePacingScoreMax = 100;
+
+
+
+export const SaveTripResponse = zod.object({
+  "id": zod.string(),
+  "destination": zod.string(),
+  "starting_location": zod.string(),
+  "start_date": zod.string(),
+  "end_date": zod.string(),
+  "traveler_count": zod.number(),
+  "budget": zod.number().optional(),
+  "currency": zod.enum(['USD']).optional(),
+  "budget_preference": zod.string(),
+  "traveler_profile": zod.object({
+  "interests": zod.array(zod.string()),
+  "travel_style": zod.string(),
+  "preferences": zod.array(zod.string())
+}),
+  "latest_itinerary": zod.union([zod.object({
+  "id": zod.string(),
+  "trip_id": zod.string(),
+  "currency": zod.enum(['USD']),
+  "total_days": zod.number().min(1),
+  "total_nights": zod.number().min(1),
+  "trip_strategy": zod.string(),
+  "route": zod.array(zod.object({
+  "why_selected": zod.string().optional(),
+  "experience_score": zod.number().optional(),
+  "location": zod.string(),
+  "nights": zod.number(),
+  "transport_to_next": zod.string().nullable(),
+  "duration_hours": zod.number().nullable()
+})),
+  "destinations": zod.array(zod.object({
+  "name": zod.string(),
+  "score": zod.number(),
+  "reasoning": zod.string(),
+  "drawbacks": zod.string(),
+  "confidence": zod.enum(['high', 'limited']).optional(),
+  "score_breakdown": zod.object({
+  "interest_fit": zod.number(),
+  "budget_fit": zod.number(),
+  "pace_fit": zod.number(),
+  "season_fit": zod.number(),
+  "crowd_fit": zod.number(),
+  "transport_fit": zod.number(),
+  "uniqueness_fit": zod.number()
+}).optional(),
+  "matched_interests": zod.array(zod.string()).optional(),
+  "strengths": zod.array(zod.string()).optional(),
+  "tradeoffs": zod.array(zod.string()).optional(),
+  "recommended_nights": zod.number().min(1).optional(),
+  "why_selected": zod.string().optional(),
+  "experience_highlights": zod.array(zod.string()).optional(),
+  "estimated_cost_usd": zod.number().min(saveTripResponseLatestItineraryOneDestinationsItemEstimatedCostUsdMin).optional()
+})),
+  "daily_itinerary": zod.array(zod.object({
+  "walking_legs": zod.array(zod.object({
+  "from": zod.enum(['morning', 'afternoon', 'evening']),
+  "to": zod.enum(['morning', 'afternoon', 'evening']),
+  "from_place_key": zod.string(),
+  "to_place_key": zod.string(),
+  "mode": zod.enum(['walk']),
+  "duration_seconds": zod.number(),
+  "distance_meters": zod.number(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+})).optional(),
+  "day": zod.number(),
+  "date": zod.string(),
+  "location": zod.string(),
+  "morning": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(saveTripResponseLatestItineraryOneDailyItineraryItemMorningEstimatedCostUsdMin)
+}),
+  "afternoon": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(saveTripResponseLatestItineraryOneDailyItineraryItemAfternoonEstimatedCostUsdMin)
+}),
+  "evening": zod.object({
+  "place": zod.object({
+  "name": zod.string(),
+  "location": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number()
+}).optional(),
+  "activity": zod.string(),
+  "description": zod.string(),
+  "estimated_cost_usd": zod.number().min(saveTripResponseLatestItineraryOneDailyItineraryItemEveningEstimatedCostUsdMin)
+}),
+  "food_recommendations": zod.array(zod.string()),
+  "transportation": zod.object({
+  "mode": zod.string(),
+  "details": zod.string(),
+  "duration": zod.string()
+}),
+  "estimated_daily_cost_usd": zod.number().min(saveTripResponseLatestItineraryOneDailyItineraryItemEstimatedDailyCostUsdMin),
+  "weather": zod.object({
+  "location": zod.string(),
+  "date": zod.string(),
+  "min_temperature_c": zod.number(),
+  "max_temperature_c": zod.number(),
+  "precipitation_probability": zod.union([zod.number(),zod.null()]),
+  "weather_code": zod.number(),
+  "description": zod.string(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+}).optional()
+})),
+  "daily_schedule": zod.array(zod.object({
+  "day": zod.number(),
+  "date": zod.string(),
+  "location": zod.string(),
+  "activities": zod.object({
+  "morning": zod.string(),
+  "afternoon": zod.string(),
+  "evening": zod.string(),
+  "food_recommendation": zod.string(),
+  "transport": zod.string(),
+  "estimated_cost": zod.number()
+})
+})),
+  "budget_breakdown": zod.array(zod.object({
+  "category": zod.string(),
+  "estimated_amount": zod.number(),
+  "description": zod.string(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+}).optional()
+})),
+  "budget_summary": zod.object({
+  "currency": zod.enum(['USD']),
+  "total_budget": zod.number().min(saveTripResponseLatestItineraryOneBudgetSummaryTotalBudgetMin),
+  "flights_estimated": zod.number().min(saveTripResponseLatestItineraryOneBudgetSummaryFlightsEstimatedMin),
+  "flights_live": zod.number().min(saveTripResponseLatestItineraryOneBudgetSummaryFlightsLiveMin).optional(),
+  "accommodation_estimated": zod.number().min(saveTripResponseLatestItineraryOneBudgetSummaryAccommodationEstimatedMin),
+  "transportation_estimated": zod.number().min(saveTripResponseLatestItineraryOneBudgetSummaryTransportationEstimatedMin),
+  "food_estimated": zod.number().min(saveTripResponseLatestItineraryOneBudgetSummaryFoodEstimatedMin),
+  "activities_estimated": zod.number().min(saveTripResponseLatestItineraryOneBudgetSummaryActivitiesEstimatedMin),
+  "total_estimated": zod.number(),
+  "remaining_budget": zod.number(),
+  "estimates_only": zod.boolean()
+}),
+  "live_data": zod.object({
+  "locations": zod.array(zod.object({
+  "location": zod.string(),
+  "lat": zod.number().min(saveTripResponseLatestItineraryOneLiveDataLocationsItemLatMin).max(saveTripResponseLatestItineraryOneLiveDataLocationsItemLatMax),
+  "lon": zod.number().min(saveTripResponseLatestItineraryOneLiveDataLocationsItemLonMin).max(saveTripResponseLatestItineraryOneLiveDataLocationsItemLonMax)
+})).optional(),
+  "flight_search": zod.object({
+  "status": zod.enum(['live', 'unavailable']),
+  "origin": zod.string(),
+  "destination": zod.string(),
+  "departure_date": zod.string(),
+  "return_date": zod.string(),
+  "offers": zod.array(zod.object({
+  "provider_offer_id": zod.string(),
+  "total_price_usd": zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemTotalPriceUsdMin),
+  "outbound": zod.object({
+  "carrier": zod.string().optional(),
+  "duration_minutes": zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemOutboundDurationMinutesMin).optional(),
+  "segments": zod.array(zod.object({
+  "origin_airport": zod.string(),
+  "destination_airport": zod.string(),
+  "departure_datetime": zod.union([zod.string(),zod.null()]),
+  "arrival_datetime": zod.union([zod.string(),zod.null()]),
+  "airline": zod.string().optional(),
+  "flight_number": zod.string().optional(),
+  "duration_minutes": zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemOutboundSegmentsItemDurationMinutesMin).optional()
+}))
+}),
+  "inbound": zod.object({
+  "carrier": zod.string().optional(),
+  "duration_minutes": zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemInboundDurationMinutesMin).optional(),
+  "segments": zod.array(zod.object({
+  "origin_airport": zod.string(),
+  "destination_airport": zod.string(),
+  "departure_datetime": zod.union([zod.string(),zod.null()]),
+  "arrival_datetime": zod.union([zod.string(),zod.null()]),
+  "airline": zod.string().optional(),
+  "flight_number": zod.string().optional(),
+  "duration_minutes": zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemInboundSegmentsItemDurationMinutesMin).optional()
+}))
+}),
+  "carriers": zod.array(zod.string()),
+  "stop_count": zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemStopCountMin),
+  "total_duration_minutes": zod.union([zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchOffersItemTotalDurationMinutesOneMin),zod.null()]),
+  "departure_datetime": zod.union([zod.string(),zod.null()]),
+  "arrival_datetime": zod.union([zod.string(),zod.null()]),
+  "booking_id": zod.string().optional(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+})),
+  "selected_offer": zod.union([zod.object({
+  "provider_offer_id": zod.string(),
+  "total_price_usd": zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneTotalPriceUsdMin),
+  "outbound": zod.object({
+  "carrier": zod.string().optional(),
+  "duration_minutes": zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneOutboundDurationMinutesMin).optional(),
+  "segments": zod.array(zod.object({
+  "origin_airport": zod.string(),
+  "destination_airport": zod.string(),
+  "departure_datetime": zod.union([zod.string(),zod.null()]),
+  "arrival_datetime": zod.union([zod.string(),zod.null()]),
+  "airline": zod.string().optional(),
+  "flight_number": zod.string().optional(),
+  "duration_minutes": zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneOutboundSegmentsItemDurationMinutesMin).optional()
+}))
+}),
+  "inbound": zod.object({
+  "carrier": zod.string().optional(),
+  "duration_minutes": zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneInboundDurationMinutesMin).optional(),
+  "segments": zod.array(zod.object({
+  "origin_airport": zod.string(),
+  "destination_airport": zod.string(),
+  "departure_datetime": zod.union([zod.string(),zod.null()]),
+  "arrival_datetime": zod.union([zod.string(),zod.null()]),
+  "airline": zod.string().optional(),
+  "flight_number": zod.string().optional(),
+  "duration_minutes": zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneInboundSegmentsItemDurationMinutesMin).optional()
+}))
+}),
+  "carriers": zod.array(zod.string()),
+  "stop_count": zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneStopCountMin),
+  "total_duration_minutes": zod.union([zod.number().min(saveTripResponseLatestItineraryOneLiveDataFlightSearchSelectedOfferOneTotalDurationMinutesOneMin),zod.null()]),
+  "departure_datetime": zod.union([zod.string(),zod.null()]),
+  "arrival_datetime": zod.union([zod.string(),zod.null()]),
+  "booking_id": zod.string().optional(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+}),zod.null()]),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+}),
+  "recommendation_reason": zod.string().optional(),
+  "message": zod.string().optional()
+}),
+  "weather": zod.array(zod.object({
+  "location": zod.string(),
+  "date": zod.string(),
+  "min_temperature_c": zod.number(),
+  "max_temperature_c": zod.number(),
+  "precipitation_probability": zod.union([zod.number(),zod.null()]),
+  "weather_code": zod.number(),
+  "description": zod.string(),
+  "source_metadata": zod.object({
+  "provider": zod.string(),
+  "data_type": zod.string(),
+  "retrieved_at": zod.union([zod.string(),zod.null()]),
+  "freshness": zod.string(),
+  "is_live": zod.boolean(),
+  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+})
+})),
+  "refreshed_at": zod.string(),
+  "planning_note": zod.string().optional()
+}).optional(),
+  "reasoning": zod.string(),
+  "tradeoffs": zod.array(zod.object({
+  "description": zod.string(),
+  "impact": zod.string()
+})),
+  "health_score": zod.union([zod.object({
+  "overall": zod.number().min(saveTripResponseLatestItineraryOneHealthScoreOneOverallMin).max(saveTripResponseLatestItineraryOneHealthScoreOneOverallMax),
+  "overall_label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "experience_fit": zod.object({
+  "score": zod.number().min(saveTripResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMin).max(saveTripResponseLatestItineraryOneHealthScoreOneExperienceFitScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "transportation_efficiency": zod.object({
+  "score": zod.number().min(saveTripResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMin).max(saveTripResponseLatestItineraryOneHealthScoreOneTransportationEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "budget_efficiency": zod.object({
+  "score": zod.number().min(saveTripResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMin).max(saveTripResponseLatestItineraryOneHealthScoreOneBudgetEfficiencyScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "uniqueness": zod.object({
+  "score": zod.number().min(saveTripResponseLatestItineraryOneHealthScoreOneUniquenessScoreMin).max(saveTripResponseLatestItineraryOneHealthScoreOneUniquenessScoreMax),
+  "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
+  "explanation": zod.string()
+}).describe('One dimension of the Trip Health Score'),
+  "pacing": zod.object({
+  "score": zod.number().min(saveTripResponseLatestItineraryOneHealthScoreOnePacingScoreMin).max(saveTripResponseLatestItineraryOneHealthScoreOnePacingScoreMax),
   "label": zod.enum(['Excellent', 'Good', 'Fair', 'Needs attention']),
   "explanation": zod.string()
 }).describe('One dimension of the Trip Health Score')

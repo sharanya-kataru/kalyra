@@ -505,6 +505,83 @@ export function useListDestinations<TData = Awaited<ReturnType<typeof listDestin
 
 
 
+export const getListTripsUrl = () => {
+
+
+
+
+  return `/api/trips`
+}
+
+/**
+ * @summary List trips owned by the current user
+ */
+export const listTrips = async ( options?: RequestInit): Promise<Trip[]> => {
+
+  return customFetch<Trip[]>(getListTripsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTripsQueryKey = () => {
+    return [
+    `/api/trips`
+    ] as const;
+    }
+
+
+export const getListTripsQueryOptions = <TData = Awaited<ReturnType<typeof listTrips>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTrips>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTripsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTrips>>> = ({ signal }) => listTrips({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTrips>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListTripsQueryResult = NonNullable<Awaited<ReturnType<typeof listTrips>>>
+export type ListTripsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary List trips owned by the current user
+ */
+
+export function useListTrips<TData = Awaited<ReturnType<typeof listTrips>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTrips>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListTripsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getCreateTripUrl = () => {
 
 
@@ -652,6 +729,77 @@ export function useGetTrip<TData = Awaited<ReturnType<typeof getTrip>>, TError =
 
 
 
+
+export const getSaveTripUrl = (id: string,) => {
+
+
+
+
+  return `/api/trips/${id}/save`
+}
+
+/**
+ * @summary Save an anonymous trip to the current user's account
+ */
+export const saveTrip = async (id: string, options?: RequestInit): Promise<Trip> => {
+
+  return customFetch<Trip>(getSaveTripUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getSaveTripMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveTrip>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveTrip>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['saveTrip'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveTrip>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  saveTrip(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveTripMutationResult = NonNullable<Awaited<ReturnType<typeof saveTrip>>>
+
+    export type SaveTripMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Save an anonymous trip to the current user's account
+ */
+export const useSaveTrip = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveTrip>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveTrip>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getSaveTripMutationOptions(options));
+    }
 
 export const getAnalyzeTripUrl = (id: string,) => {
 

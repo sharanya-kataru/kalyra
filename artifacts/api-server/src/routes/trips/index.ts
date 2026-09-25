@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, isNull } from "drizzle-orm";
 import { db, tripsTable, itinerariesTable, tripModificationsTable } from "@workspace/db";
 import {
   CreateTripBody,
@@ -25,10 +25,16 @@ import { enrichItineraryWithLiveData } from "../../lib/live-data";
 
 const router: IRouter = Router();
 
-// Helper: load trip or 404
-async function loadTrip(id: string) {
+// Helper: load a trip only when it is anonymous or owned by the current user.
+// Returning null for someone else's trip avoids revealing whether that trip exists.
+async function loadAccessibleTrip(id: string, userId?: string) {
   const [trip] = await db.select().from(tripsTable).where(eq(tripsTable.id, id));
-  return trip ?? null;
+
+  if (!trip) return null;
+  if (trip.userId === null) return trip;
+  if (userId && trip.userId === userId) return trip;
+
+  return null;
 }
 
 // Helper: load latest itinerary for a trip
@@ -125,6 +131,29 @@ function formatTrip(
   };
 }
 
+// GET /trips — list trips owned by the current user
+router.get("/trips", async (req, res): Promise<void> => {
+  if (!req.authUser) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const trips = await db
+    .select()
+    .from(tripsTable)
+    .where(eq(tripsTable.userId, req.authUser.id))
+    .orderBy(desc(tripsTable.createdAt));
+
+  const results = await Promise.all(
+    trips.map(async (trip) => {
+      const itinerary = await loadLatestItinerary(trip.id);
+      return formatTrip(trip, itinerary);
+    }),
+  );
+
+  res.status(200).json(results);
+});
+
 // POST /trips — create a new trip
 router.post("/trips", async (req, res): Promise<void> => {
   const parsed = CreateTripBody.safeParse(req.body);
@@ -147,6 +176,7 @@ router.post("/trips", async (req, res): Promise<void> => {
   const [trip] = await db
     .insert(tripsTable)
     .values({
+      userId: req.authUser?.id ?? null,
       destination: d.destination,
       startingLocation: d.starting_location,
       startDate: normalizedDates.start_date,
@@ -163,6 +193,65 @@ router.post("/trips", async (req, res): Promise<void> => {
   res.status(201).json(formatTrip(trip, null));
 });
 
+// POST /trips/:id/save — claim an anonymous trip for the current user
+router.post("/trips/:id/save", async (req, res): Promise<void> => {
+  if (!req.authUser) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const params = GetTripParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [existingTrip] = await db
+    .select()
+    .from(tripsTable)
+    .where(eq(tripsTable.id, params.data.id))
+    .limit(1);
+
+  if (!existingTrip) {
+    res.status(404).json({ error: "Trip not found" });
+    return;
+  }
+
+  // Saving an already-owned trip is safely idempotent.
+  if (existingTrip.userId === req.authUser.id) {
+    const itinerary = await loadLatestItinerary(existingTrip.id);
+    res.status(200).json(formatTrip(existingTrip, itinerary));
+    return;
+  }
+
+  // Do not reveal trips belonging to another user.
+  if (existingTrip.userId !== null) {
+    res.status(404).json({ error: "Trip not found" });
+    return;
+  }
+
+  // Claim only if the trip is still anonymous. This prevents two users
+  // from successfully claiming the same trip at the same time.
+  const [claimedTrip] = await db
+    .update(tripsTable)
+    .set({ userId: req.authUser.id })
+    .where(
+      and(
+        eq(tripsTable.id, params.data.id),
+        isNull(tripsTable.userId),
+      ),
+    )
+    .returning();
+
+  if (!claimedTrip) {
+    res.status(404).json({ error: "Trip not found" });
+    return;
+  }
+
+  const itinerary = await loadLatestItinerary(claimedTrip.id);
+  res.status(200).json(formatTrip(claimedTrip, itinerary));
+});
+
 // GET /trips/:id — retrieve trip with latest itinerary
 router.get("/trips/:id", async (req, res): Promise<void> => {
   const params = GetTripParams.safeParse(req.params);
@@ -171,7 +260,7 @@ router.get("/trips/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const trip = await loadTrip(params.data.id);
+  const trip = await loadAccessibleTrip(params.data.id, req.authUser?.id);
   if (!trip) {
     res.status(404).json({ error: "Trip not found" });
     return;
@@ -189,7 +278,7 @@ router.post("/trips/:id/analyze", async (req, res): Promise<void> => {
     return;
   }
 
-  const trip = await loadTrip(params.data.id);
+  const trip = await loadAccessibleTrip(params.data.id, req.authUser?.id);
   if (!trip) {
     res.status(404).json({ error: "Trip not found" });
     return;
@@ -208,7 +297,7 @@ router.post("/trips/:id/generate", async (req, res): Promise<void> => {
     return;
   }
 
-  const trip = await loadTrip(params.data.id);
+  const trip = await loadAccessibleTrip(params.data.id, req.authUser?.id);
   if (!trip) {
     res.status(404).json({ error: "Trip not found" });
     return;
@@ -258,7 +347,7 @@ router.post("/trips/:id/refresh-live-data", async (req, res): Promise<void> => {
     return;
   }
 
-  const trip = await loadTrip(params.data.id);
+  const trip = await loadAccessibleTrip(params.data.id, req.authUser?.id);
   if (!trip) {
     res.status(404).json({ error: "Trip not found" });
     return;
@@ -319,7 +408,7 @@ router.post("/trips/:id/modify", async (req, res): Promise<void> => {
     return;
   }
 
-  const trip = await loadTrip(params.data.id);
+  const trip = await loadAccessibleTrip(params.data.id, req.authUser?.id);
   if (!trip) {
     res.status(404).json({ error: "Trip not found" });
     return;
