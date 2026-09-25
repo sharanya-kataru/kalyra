@@ -1,4 +1,4 @@
-export type SourceLabel = "LIVE" | "ESTIMATED" | "KALYRA RECOMMENDED" | "FALLBACK";
+export type SourceLabel = "HISTORICAL" | "LIVE" | "ESTIMATED" | "KALYRA RECOMMENDED" | "FALLBACK";
 
 export interface DataSourceMetadata {
   provider: string;

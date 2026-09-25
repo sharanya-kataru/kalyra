@@ -126,7 +126,7 @@ class GeoapifyPlacesProvider implements PlacesProvider {
   }
 
   search_points_of_interest(query: string, limit = 5) {
-    return this.search(query, "tourism,heritage", limit);
+    return this.search(query, "tourism,heritage,entertainment.museum,entertainment.culture.gallery,religion.place_of_worship", limit);
   }
 }
 

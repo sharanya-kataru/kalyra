@@ -6,14 +6,20 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DataSourceMetadata } from './dataSourceMetadata';
+import type { WeatherSummaryKind } from './weatherSummaryKind';
 
 export interface WeatherSummary {
+  kind?: WeatherSummaryKind;
+  /** Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability. */
+  historical_wet_day_frequency?: number;
+  historical_sample_days?: number;
+  historical_period?: string;
   location: string;
   date: string;
   min_temperature_c: number;
   max_temperature_c: number;
   precipitation_probability: number | null;
-  weather_code: number;
+  weather_code: number | null;
   description: string;
   source_metadata: DataSourceMetadata;
 }

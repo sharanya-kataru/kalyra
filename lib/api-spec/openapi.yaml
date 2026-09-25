@@ -801,7 +801,7 @@ components:
           type: boolean
         label:
           type: string
-          enum: ["LIVE", "ESTIMATED", "KALYRA RECOMMENDED", "FALLBACK"]
+          enum: ["LIVE", "HISTORICAL", "ESTIMATED", "KALYRA RECOMMENDED", "FALLBACK"]
       required:
         - provider
         - data_type
@@ -942,6 +942,16 @@ components:
     WeatherSummary:
       type: object
       properties:
+        kind:
+          type: string
+          enum: ["forecast", "historical"]
+        historical_wet_day_frequency:
+          type: number
+          description: Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.
+        historical_sample_days:
+          type: integer
+        historical_period:
+          type: string
         location:
           type: string
         date:
@@ -955,7 +965,9 @@ components:
             - type: number
             - type: "null"
         weather_code:
-          type: integer
+          oneOf:
+            - type: integer
+            - type: "null"
         description:
           type: string
         source_metadata:

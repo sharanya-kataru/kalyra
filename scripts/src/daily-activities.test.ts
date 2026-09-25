@@ -113,8 +113,9 @@ test("interests and preferences prioritize categories and provider order does no
   const itinerary = plan();
   const makeProvider = (reverse: boolean) => provider({
     search_attractions: async () => [place("Attraction")],
-    search_nature: async () => (reverse ? [place("Park B"), place("Park A")] : [place("Park A"), place("Park B")]),
-    search_points_of_interest: async () => [place("Heritage")],
+    search_nature: async () => (reverse ? ["Park B", "Park A"] : ["Park A", "Park B"])
+      .map((name) => ({ ...place(name), category: "leisure.park" })),
+    search_points_of_interest: async () => [{ ...place("Heritage"), category: "heritage" }],
   });
   const natureTrip = { ...trip, traveler_profile: { ...trip.traveler_profile, preferences: ["Outdoor walks"] } };
   const first = await discoverDailyActivities(itinerary, natureTrip, makeProvider(false));

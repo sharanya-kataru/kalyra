@@ -56,3 +56,4 @@ export * from './walkingLegFrom';
 export * from './walkingLegMode';
 export * from './walkingLegTo';
 export * from './weatherSummary';
+export * from './weatherSummaryKind';

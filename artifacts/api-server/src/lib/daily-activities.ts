@@ -1,6 +1,7 @@
 import type { DailyItinerary, ItineraryData, TripData } from "./ai";
 import type { PlaceResult, PlacesProvider } from "./places";
-import { validPlace } from "./walking";
+import { cleanWalkingData, validPlace } from "./walking";
+import { activityIdentity, compareActivities, rankActivities } from "./activity-optimizer";
 
 const CATEGORY_LABELS: Record<string, string> = {
   "leisure.park": "A park",
@@ -58,9 +59,8 @@ export async function discoverDailyActivities(
       ? location
       : `${location}, ${context}`;
     const dayCount = itinerary.daily_itinerary.filter((day) => day.location === location).length;
-    const limit = Math.min(20, Math.max(5, dayCount * 2));
-    // Query order expresses category preference; sorting within each group makes
-    // allocation independent of the provider's response ordering.
+    const limit = Math.min(20, Math.max(10, dayCount * 4));
+    // Keep the existing search calls, but request enough candidates for daily grouping.
     const searches: Array<() => Promise<PlaceResult[]>> = [];
     if (wantsNature) searches.push(() => provider.search_nature(query, limit));
     if (wantsCulture) searches.push(() => provider.search_points_of_interest(query, limit));
@@ -68,12 +68,9 @@ export async function discoverDailyActivities(
     if (!wantsCulture) searches.push(() => provider.search_points_of_interest(query, limit));
     const results = await Promise.allSettled(searches.map(async (search) => search()));
     const seen = new Set<string>();
-    const places = results.flatMap((result) => result.status === "fulfilled"
-      ? [...result.value].sort((a, b) =>
-        a.name.localeCompare(b.name) || (a.address ?? "").localeCompare(b.address ?? "") ||
-        (a.lat ?? 0) - (b.lat ?? 0) || (a.lon ?? 0) - (b.lon ?? 0))
-      : []).filter((place) => {
-        const key = place.name.trim().toLowerCase().replace(/\s+/g, " ");
+    const places = results.flatMap((result) => result.status === "fulfilled" ? result.value : [])
+      .sort(compareActivities).filter((place) => {
+        const key = activityIdentity(place);
         if (!key || seen.has(key)) return false;
         seen.add(key);
         return true;
@@ -81,7 +78,8 @@ export async function discoverDailyActivities(
     return [location, places] as const;
   }));
   const pools = new Map(entries);
-  const cursors = new Map<string, number>();
+  const used = new Map<string, Set<string>>();
+  const history = new Map<string, PlaceResult[]>();
 
   return itinerary.daily_itinerary.map((day, index, days) => {
     // Keep the whole departure day and arrival/transfer mornings available for
@@ -91,11 +89,21 @@ export async function discoverDailyActivities(
     const periods = index === 0 || days[index - 1].location !== day.location
       ? ["afternoon"] as const
       : ["morning", "afternoon"] as const;
+    const selected = used.get(day.location) ?? new Set<string>();
+    used.set(day.location, selected);
+    const selectedAtLocation = history.get(day.location) ?? [];
+    history.set(day.location, selectedAtLocation);
+    let previous: PlaceResult | undefined;
+    let changed = false;
     for (const period of periods) {
-      const cursor = cursors.get(day.location) ?? 0;
-      const place = pools.get(day.location)?.[cursor];
-      if (!place) break;
-      cursors.set(day.location, cursor + 1);
+      const candidates = (pools.get(day.location) ?? []).filter((place) => !selected.has(activityIdentity(place)));
+      const choice = rankActivities(candidates, trip, { previous, selectedAtLocation, weather: day.weather, date: day.date, location: day.location })[0];
+      if (!choice) break;
+      const place = choice.place;
+      selected.add(activityIdentity(place));
+      selectedAtLocation.push(place);
+      previous = place;
+      changed = true;
       const coordinates = { name: place.name, location: day.location, lat: place.lat, lon: place.lon };
       updated[period] = {
         ...(validPlace(coordinates) ? { place: coordinates } : {}),
@@ -104,6 +112,6 @@ export async function discoverDailyActivities(
         estimated_cost_usd: day[period].estimated_cost_usd,
       };
     }
-    return updated;
+    return changed ? cleanWalkingData(updated) : day;
   });
 }

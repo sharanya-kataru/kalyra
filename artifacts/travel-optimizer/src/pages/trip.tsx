@@ -1,3 +1,4 @@
+import { weatherPresentation } from "@/lib/weather-label";
 import { Fragment, useState, useEffect } from 'react';
 import { useLocation, useRoute } from 'wouter';
 import {
@@ -929,7 +930,7 @@ export default function Trip() {
                           <div className="rounded-xl border border-[#c7d8cc] bg-[#eef4ef] p-3">
                             <div className="flex items-center justify-between gap-3">
                               <p className="flex items-center gap-2 text-xs font-semibold text-[#3d6b50]">
-                                <CloudSun size={14} /> Forecast
+                                <CloudSun size={14} /> {weatherPresentation(day.weather).title}
                               </p>
                               <SourcePill
                                 label={day.weather.source_metadata.label}
@@ -939,9 +940,12 @@ export default function Trip() {
                             <p className="mt-2 text-sm font-semibold text-[#203b47]">
                               {Math.round(day.weather.min_temperature_c)}–{Math.round(day.weather.max_temperature_c)}°C · {day.weather.description}
                             </p>
-                            {day.weather.precipitation_probability !== null && (
+                            {weatherPresentation(day.weather).qualifier && (
+                              <p className="mt-1 text-xs text-[#65706d]">{weatherPresentation(day.weather).qualifier}</p>
+                            )}
+                            {weatherPresentation(day.weather).precipitation && (
                               <p className="mt-1 text-xs text-[#65706d]">
-                                {day.weather.precipitation_probability}% chance of precipitation
+                                {weatherPresentation(day.weather).precipitation}
                               </p>
                             )}
                           </div>
@@ -1341,13 +1345,7 @@ function LiveTravelData({
               <CloudSun size={17} className="text-[#bb7a52]" />
               <p className="text-sm font-semibold">Daily weather</p>
             </div>
-            {data.weather?.[0] && (
-              <SourcePill
-                label={data.weather[0].source_metadata.label}
-                provider={data.weather[0].source_metadata.provider}
-                freshness={data.weather[0].source_metadata.freshness}
-              />
-            )}
+
           </div>
           {weatherCount > 0 ? (
             <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -1356,13 +1354,16 @@ function LiveTravelData({
                   <p className="truncate text-[10px] font-semibold text-[#3d6b50]">{summary.location}</p>
                   <p className="mt-2 text-xs text-[#65706d]">{summary.date}</p>
                   <p className="mt-1 text-sm font-semibold">{Math.round(summary.min_temperature_c)}–{Math.round(summary.max_temperature_c)}°C</p>
-                  <p className="mt-1 truncate text-[10px] text-[#65706d]">{summary.description}</p>
+                  <p className="mt-1 text-[10px] font-semibold">{weatherPresentation(summary).title}</p>
+                  <SourcePill label={summary.source_metadata.label} provider={summary.source_metadata.provider} />
+                  <p className="mt-1 text-[10px] text-[#65706d]">{summary.description}</p>
+                  <p className="mt-1 text-[10px] text-[#65706d]">{weatherPresentation(summary).qualifier}</p>
                 </div>
               ))}
             </div>
           ) : (
             <p className="mt-7 text-sm leading-6 text-[#65706d]">
-              Weather forecasts are only shown inside Open-Meteo’s legitimate forecast window. This trip is outside that window or the provider is unavailable.
+              Weather information is unavailable. Check local conditions closer to departure.
             </p>
           )}
         </div>

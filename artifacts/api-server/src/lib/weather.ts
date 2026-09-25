@@ -1,3 +1,4 @@
+import { getHistoricalWeather } from "./historical-weather";
 import { logger } from "./logger";
 import {
   fallbackSource,
@@ -14,18 +15,22 @@ export interface WeatherSearchInput {
 }
 
 export interface WeatherSummary {
+  kind?: "forecast" | "historical";
+  historical_wet_day_frequency?: number;
+  historical_sample_days?: number;
+  historical_period?: string;
   location: string;
   date: string;
   min_temperature_c: number;
   max_temperature_c: number;
   precipitation_probability: number | null;
-  weather_code: number;
+  weather_code: number | null;
   description: string;
   source_metadata: DataSourceMetadata;
 }
 
 export interface WeatherSearchResult {
-  status: "live_forecast" | "unavailable";
+  status: "live_forecast" | "historical" | "mixed" | "unavailable";
   location: string;
   summaries: WeatherSummary[];
   source_metadata: DataSourceMetadata;
@@ -136,18 +141,19 @@ class OpenMeteoWeatherProvider implements WeatherProvider {
       const sourceMetadata = liveSource("Open-Meteo", "weather_forecast", retrievedAt);
       const summaries = times
         .map((date, index): WeatherSummary | null => {
-          if (typeof date !== "string") return null;
+          if (typeof date !== "string" || date < input.start_date || date > input.end_date) return null;
           const min = mins[index];
           const max = maxes[index];
           const code = codes[index];
-          if (!isFiniteNumber(min) || !isFiniteNumber(max) || !isFiniteNumber(code)) return null;
+          if (!isFiniteNumber(min) || !isFiniteNumber(max) || !isFiniteNumber(code) || min > max) return null;
           const probability = precipitation[index];
           return {
+            kind: "forecast",
             location: input.location,
             date,
             min_temperature_c: Math.round(min * 10) / 10,
             max_temperature_c: Math.round(max * 10) / 10,
-            precipitation_probability: isFiniteNumber(probability) ? Math.round(probability) : null,
+            precipitation_probability: isFiniteNumber(probability) && probability >= 0 && probability <= 100 ? Math.round(probability) : null,
             weather_code: Math.round(code),
             description: weatherDescription(Math.round(code)),
             source_metadata: sourceMetadata,
@@ -167,6 +173,7 @@ class OpenMeteoWeatherProvider implements WeatherProvider {
         source_metadata: sourceMetadata,
       };
       weatherCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, result });
+      while (weatherCache.size > 128) weatherCache.delete(weatherCache.keys().next().value!);
       logger.info({ provider: "Open-Meteo", requestType: "daily_forecast", cache: "miss", resultCount: summaries.length, latencyMs: Date.now() - startedAt }, "Weather forecast completed");
       return result;
     } catch {
@@ -180,6 +187,23 @@ export function getWeatherProvider(): WeatherProvider {
   return new OpenMeteoWeatherProvider();
 }
 
+// Split at the actual forecast horizon; a long trip must not lose its in-range forecast.
 export async function getWeatherForecast(input: WeatherSearchInput): Promise<WeatherSearchResult> {
-  return getWeatherProvider().get_forecast(input);
+  const today = dateOnly(new Date());
+  const horizon = addDays(today, FORECAST_DAYS);
+  const dates: string[] = [];
+  const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    Number.isFinite(Date.parse(`${value}T00:00:00Z`)) && dateOnly(new Date(`${value}T00:00:00Z`)) === value;
+  if (!validDate(input.start_date) || !validDate(input.end_date) || input.start_date > input.end_date) return unavailable(input, "Weather unavailable.");
+  for (let date = input.start_date; date <= input.end_date && dates.length < 366; date = addDays(date, 1)) dates.push(date);
+  const liveDates = dates.filter((date) => date >= today && date <= horizon);
+  const historicalDates = dates.filter((date) => date > horizon);
+  const [live, historical] = await Promise.all([
+    liveDates.length ? getWeatherProvider().get_forecast({ ...input, start_date: liveDates[0], end_date: liveDates.at(-1)! }) : null,
+    historicalDates.length ? getHistoricalWeather(input, historicalDates) : [],
+  ]);
+  const summaries = [...(live?.summaries ?? []), ...historical].sort((a, b) => a.date.localeCompare(b.date));
+  if (!summaries.length) return unavailable(input, "Weather is unavailable. Check conditions closer to departure.");
+  return { location: input.location, summaries, source_metadata: summaries[0].source_metadata,
+    status: historical.length ? live?.summaries.length ? "mixed" : "historical" : "live_forecast" };
 }

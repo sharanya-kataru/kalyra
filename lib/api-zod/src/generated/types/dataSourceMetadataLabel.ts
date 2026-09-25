@@ -11,6 +11,7 @@ export type DataSourceMetadataLabel = typeof DataSourceMetadataLabel[keyof typeo
 
 export const DataSourceMetadataLabel = {
   LIVE: 'LIVE',
+  HISTORICAL: 'HISTORICAL',
   ESTIMATED: 'ESTIMATED',
   KALYRA_RECOMMENDED: 'KALYRA RECOMMENDED',
   FALLBACK: 'FALLBACK',

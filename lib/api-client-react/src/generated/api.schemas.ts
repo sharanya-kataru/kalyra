@@ -170,6 +170,7 @@ export type DataSourceMetadataLabel = typeof DataSourceMetadataLabel[keyof typeo
 
 export const DataSourceMetadataLabel = {
   LIVE: 'LIVE',
+  HISTORICAL: 'HISTORICAL',
   ESTIMATED: 'ESTIMATED',
   KALYRA_RECOMMENDED: 'KALYRA RECOMMENDED',
   FALLBACK: 'FALLBACK',
@@ -201,13 +202,26 @@ export interface DailyTransportation {
   duration: string;
 }
 
+export type WeatherSummaryKind = typeof WeatherSummaryKind[keyof typeof WeatherSummaryKind];
+
+
+export const WeatherSummaryKind = {
+  forecast: 'forecast',
+  historical: 'historical',
+} as const;
+
 export interface WeatherSummary {
+  kind?: WeatherSummaryKind;
+  /** Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability. */
+  historical_wet_day_frequency?: number;
+  historical_sample_days?: number;
+  historical_period?: string;
   location: string;
   date: string;
   min_temperature_c: number;
   max_temperature_c: number;
   precipitation_probability: number | null;
-  weather_code: number;
+  weather_code: number | null;
   description: string;
   source_metadata: DataSourceMetadata;
 }

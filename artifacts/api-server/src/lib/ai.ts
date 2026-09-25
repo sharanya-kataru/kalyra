@@ -1,3 +1,4 @@
+import { prepareItineraryWeather, markWeatherPrepared } from "./itinerary-weather";
 import { logger } from "./logger";
 import { cleanWalkingData, validPlace, type ActivityPlace, type WalkingLeg } from "./walking";
 import {
@@ -612,12 +613,13 @@ export async function generateItinerary(trip: TripData): Promise<ItineraryData> 
     trip,
     totalDays
   );
-  const dailyItinerary = await discoverDailyActivities(itinerary, trip, getPlacesProvider());
-  return {
-    ...itinerary,
+  const withWeather = await prepareItineraryWeather(itinerary, trip);
+  const dailyItinerary = await discoverDailyActivities(withWeather, trip, getPlacesProvider());
+  return markWeatherPrepared({
+    ...withWeather,
     daily_itinerary: dailyItinerary,
     daily_schedule: legacyScheduleFromRich(dailyItinerary),
-  };
+  });
 }
 
 // ---------------------------------------------------------------------------

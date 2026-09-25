@@ -243,7 +243,7 @@ export const ListTripsResponseItem = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })).optional(),
   "day": zod.number(),
@@ -290,12 +290,16 @@ export const ListTripsResponseItem = zod.object({
 }),
   "estimated_daily_cost_usd": zod.number().min(listTripsResponseLatestItineraryOneDailyItineraryItemEstimatedDailyCostUsdMin),
   "weather": zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -303,7 +307,7 @@ export const ListTripsResponseItem = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }).optional()
 })),
@@ -330,7 +334,7 @@ export const ListTripsResponseItem = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }).optional()
 })),
   "budget_summary": zod.object({
@@ -399,7 +403,7 @@ export const ListTripsResponseItem = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "selected_offer": zod.union([zod.object({
@@ -443,7 +447,7 @@ export const ListTripsResponseItem = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }),zod.null()]),
   "source_metadata": zod.object({
@@ -452,18 +456,22 @@ export const ListTripsResponseItem = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }),
   "recommendation_reason": zod.string().optional(),
   "message": zod.string().optional()
 }),
   "weather": zod.array(zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -471,7 +479,7 @@ export const ListTripsResponseItem = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "refreshed_at": zod.string(),
@@ -686,7 +694,7 @@ export const CreateTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })).optional(),
   "day": zod.number(),
@@ -733,12 +741,16 @@ export const CreateTripResponse = zod.object({
 }),
   "estimated_daily_cost_usd": zod.number().min(createTripResponseLatestItineraryOneDailyItineraryItemEstimatedDailyCostUsdMin),
   "weather": zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -746,7 +758,7 @@ export const CreateTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }).optional()
 })),
@@ -773,7 +785,7 @@ export const CreateTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }).optional()
 })),
   "budget_summary": zod.object({
@@ -842,7 +854,7 @@ export const CreateTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "selected_offer": zod.union([zod.object({
@@ -886,7 +898,7 @@ export const CreateTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }),zod.null()]),
   "source_metadata": zod.object({
@@ -895,18 +907,22 @@ export const CreateTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }),
   "recommendation_reason": zod.string().optional(),
   "message": zod.string().optional()
 }),
   "weather": zod.array(zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -914,7 +930,7 @@ export const CreateTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "refreshed_at": zod.string(),
@@ -1117,7 +1133,7 @@ export const GetTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })).optional(),
   "day": zod.number(),
@@ -1164,12 +1180,16 @@ export const GetTripResponse = zod.object({
 }),
   "estimated_daily_cost_usd": zod.number().min(getTripResponseLatestItineraryOneDailyItineraryItemEstimatedDailyCostUsdMin),
   "weather": zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -1177,7 +1197,7 @@ export const GetTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }).optional()
 })),
@@ -1204,7 +1224,7 @@ export const GetTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }).optional()
 })),
   "budget_summary": zod.object({
@@ -1273,7 +1293,7 @@ export const GetTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "selected_offer": zod.union([zod.object({
@@ -1317,7 +1337,7 @@ export const GetTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }),zod.null()]),
   "source_metadata": zod.object({
@@ -1326,18 +1346,22 @@ export const GetTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }),
   "recommendation_reason": zod.string().optional(),
   "message": zod.string().optional()
 }),
   "weather": zod.array(zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -1345,7 +1369,7 @@ export const GetTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "refreshed_at": zod.string(),
@@ -1548,7 +1572,7 @@ export const SaveTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })).optional(),
   "day": zod.number(),
@@ -1595,12 +1619,16 @@ export const SaveTripResponse = zod.object({
 }),
   "estimated_daily_cost_usd": zod.number().min(saveTripResponseLatestItineraryOneDailyItineraryItemEstimatedDailyCostUsdMin),
   "weather": zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -1608,7 +1636,7 @@ export const SaveTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }).optional()
 })),
@@ -1635,7 +1663,7 @@ export const SaveTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }).optional()
 })),
   "budget_summary": zod.object({
@@ -1704,7 +1732,7 @@ export const SaveTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "selected_offer": zod.union([zod.object({
@@ -1748,7 +1776,7 @@ export const SaveTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }),zod.null()]),
   "source_metadata": zod.object({
@@ -1757,18 +1785,22 @@ export const SaveTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }),
   "recommendation_reason": zod.string().optional(),
   "message": zod.string().optional()
 }),
   "weather": zod.array(zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -1776,7 +1808,7 @@ export const SaveTripResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "refreshed_at": zod.string(),
@@ -2022,7 +2054,7 @@ export const GenerateItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })).optional(),
   "day": zod.number(),
@@ -2069,12 +2101,16 @@ export const GenerateItineraryResponse = zod.object({
 }),
   "estimated_daily_cost_usd": zod.number().min(generateItineraryResponseDailyItineraryItemEstimatedDailyCostUsdMin),
   "weather": zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -2082,7 +2118,7 @@ export const GenerateItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }).optional()
 })),
@@ -2109,7 +2145,7 @@ export const GenerateItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }).optional()
 })),
   "budget_summary": zod.object({
@@ -2178,7 +2214,7 @@ export const GenerateItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "selected_offer": zod.union([zod.object({
@@ -2222,7 +2258,7 @@ export const GenerateItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }),zod.null()]),
   "source_metadata": zod.object({
@@ -2231,18 +2267,22 @@ export const GenerateItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }),
   "recommendation_reason": zod.string().optional(),
   "message": zod.string().optional()
 }),
   "weather": zod.array(zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -2250,7 +2290,7 @@ export const GenerateItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "refreshed_at": zod.string(),
@@ -2436,7 +2476,7 @@ export const RefreshLiveDataResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })).optional(),
   "day": zod.number(),
@@ -2483,12 +2523,16 @@ export const RefreshLiveDataResponse = zod.object({
 }),
   "estimated_daily_cost_usd": zod.number().min(refreshLiveDataResponseDailyItineraryItemEstimatedDailyCostUsdMin),
   "weather": zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -2496,7 +2540,7 @@ export const RefreshLiveDataResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }).optional()
 })),
@@ -2523,7 +2567,7 @@ export const RefreshLiveDataResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }).optional()
 })),
   "budget_summary": zod.object({
@@ -2592,7 +2636,7 @@ export const RefreshLiveDataResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "selected_offer": zod.union([zod.object({
@@ -2636,7 +2680,7 @@ export const RefreshLiveDataResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }),zod.null()]),
   "source_metadata": zod.object({
@@ -2645,18 +2689,22 @@ export const RefreshLiveDataResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }),
   "recommendation_reason": zod.string().optional(),
   "message": zod.string().optional()
 }),
   "weather": zod.array(zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -2664,7 +2712,7 @@ export const RefreshLiveDataResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "refreshed_at": zod.string(),
@@ -2957,7 +3005,7 @@ export const ModifyItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })).optional(),
   "day": zod.number(),
@@ -3004,12 +3052,16 @@ export const ModifyItineraryResponse = zod.object({
 }),
   "estimated_daily_cost_usd": zod.number().min(modifyItineraryResponseItineraryDailyItineraryItemEstimatedDailyCostUsdMin),
   "weather": zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -3017,7 +3069,7 @@ export const ModifyItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }).optional()
 })),
@@ -3044,7 +3096,7 @@ export const ModifyItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }).optional()
 })),
   "budget_summary": zod.object({
@@ -3113,7 +3165,7 @@ export const ModifyItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "selected_offer": zod.union([zod.object({
@@ -3157,7 +3209,7 @@ export const ModifyItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 }),zod.null()]),
   "source_metadata": zod.object({
@@ -3166,18 +3218,22 @@ export const ModifyItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 }),
   "recommendation_reason": zod.string().optional(),
   "message": zod.string().optional()
 }),
   "weather": zod.array(zod.object({
+  "kind": zod.enum(['forecast', 'historical']).optional(),
+  "historical_wet_day_frequency": zod.number().optional().describe('Percentage of sampled historical days with at least 1 mm precipitation; not a forecast probability.'),
+  "historical_sample_days": zod.number().optional(),
+  "historical_period": zod.string().optional(),
   "location": zod.string(),
   "date": zod.string(),
   "min_temperature_c": zod.number(),
   "max_temperature_c": zod.number(),
   "precipitation_probability": zod.union([zod.number(),zod.null()]),
-  "weather_code": zod.number(),
+  "weather_code": zod.union([zod.number(),zod.null()]),
   "description": zod.string(),
   "source_metadata": zod.object({
   "provider": zod.string(),
@@ -3185,7 +3241,7 @@ export const ModifyItineraryResponse = zod.object({
   "retrieved_at": zod.union([zod.string(),zod.null()]),
   "freshness": zod.string(),
   "is_live": zod.boolean(),
-  "label": zod.enum(['LIVE', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
+  "label": zod.enum(['LIVE', 'HISTORICAL', 'ESTIMATED', 'KALYRA RECOMMENDED', 'FALLBACK'])
 })
 })),
   "refreshed_at": zod.string(),

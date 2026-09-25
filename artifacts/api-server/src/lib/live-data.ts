@@ -1,3 +1,4 @@
+import { hasPreparedWeather } from "./itinerary-weather";
 import type { ItineraryData, TripData } from "./ai";
 import { enrichWalkingLegs } from "./walking";
 import {
@@ -384,7 +385,9 @@ export async function enrichItineraryWithLiveData(
         );
         const resolved = await resolveLocation(locationWithContext);
 
-        if (!resolved) return null;
+        const preparedWeather = hasPreparedWeather(itinerary) ? { summaries: itinerary.daily_itinerary
+          .filter((day) => day.location === location).flatMap((day) => day.weather ? [day.weather] : []) } : null;
+        if (!resolved) return preparedWeather;
         resolvedLocations.set(location, { location, lat: resolved.lat, lon: resolved.lon });
 
         const input: WeatherSearchInput = {
@@ -395,15 +398,10 @@ export async function enrichItineraryWithLiveData(
           end_date: trip.end_date,
         };
 
+        if (preparedWeather) return preparedWeather;
         return getWeatherForecast(input);
       })
-    .filter(
-      (
-        result
-      ): result is Promise<
-        Awaited<ReturnType<typeof getWeatherForecast>>
-      > => result !== null
-    )
+
 );
 
 const placesProvider = getPlacesProvider();
@@ -471,9 +469,7 @@ const weatherResults = await weatherPromise;
       return {
         ...day,
         food_recommendations: restaurantsByDay[index],
-        ...(weatherByDay.has(`${day.location}|${day.date}`)
-          ? { weather: weatherByDay.get(`${day.location}|${day.date}`) }
-          : {}),
+        weather: weatherByDay.get(`${day.location}|${day.date}`),
       };
     }),
     live_data: {
