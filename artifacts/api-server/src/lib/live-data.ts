@@ -1,3 +1,4 @@
+import { buildFlightComparison } from "./flight-alternatives";
 import { hasPreparedWeather } from "./itinerary-weather";
 import type { ItineraryData, TripData } from "./ai";
 import { enrichWalkingLegs } from "./walking";
@@ -267,42 +268,64 @@ function applyFlightTimingContext(itinerary: ItineraryData, result: FlightSearch
 export async function searchFlightCandidates(
   inputs: FlightSearchInput[],
   search: typeof searchFlights = searchFlights,
-  comparisonDeadlineMs = 8_000
+  comparisonDeadlineMs = 8_000,
+  totalComparisonDeadlineMs = 12_000
 ): Promise<FlightSearchResult | null> {
   if (inputs.length === 0) return null;
 
   const liveResults: FlightSearchResult[] = [];
   let bestEstimatedResult: FlightSearchResult | null = null;
 
-  // Retain input order for score ties, irrespective of completion order.
+  // Collect completed routes by input slot; the shared helper applies canonical score ties.
   const completed: Array<FlightSearchResult | undefined> = new Array(inputs.length);
   let acceptingResults = true;
   let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
-  const deadlineAt = performance.now() + comparisonDeadlineMs;
+  const startedAt = performance.now();
+  let deadlineAt = startedAt + comparisonDeadlineMs;
+  let pending = inputs.length;
+  const allSettled = Promise.all(inputs.map(async (input, index) => {
+    try {
+      const result = await search(input, false);
+      if (acceptingResults && performance.now() < deadlineAt &&
+          result.origin === input.origin && result.destination === input.destination &&
+          result.departure_date === input.departure_date && result.return_date === input.return_date) completed[index] = result;
+    } catch {
+      // A failed candidate must not prevent other routes from being compared.
+    } finally {
+      pending--;
+    }
+  }));
+  async function waitUntilDeadline() {
+    try {
+      await Promise.race([
+        allSettled,
+        new Promise<void>((resolve) => {
+          deadlineTimer = setTimeout(resolve, Math.max(0, deadlineAt - performance.now()));
+        }),
+      ]);
+    } finally {
+      clearTimeout(deadlineTimer);
+    }
+  }
   try {
-    await Promise.race([
-      new Promise<void>((resolve) => {
-        deadlineTimer = setTimeout(resolve, comparisonDeadlineMs);
-      }),
-      Promise.all(inputs.map(async (input, index) => {
-        try {
-          const result = await search(input, false);
-          if (acceptingResults && performance.now() < deadlineAt) completed[index] = result;
-        } catch {
-          // A failed candidate must not prevent other routes from being compared.
-        }
-      })),
-    ]);
+    await waitUntilDeadline();
+    const primarySelection = buildFlightComparison(
+      completed.filter((result): result is FlightSearchResult => result !== undefined)
+    );
+    // Keep the normal fast path. Only an empty comparison gets additional time,
+    // using the same requests and a deadline measured from the original start.
+    if (!primarySelection && pending > 0) {
+      deadlineAt = startedAt + totalComparisonDeadlineMs;
+      await waitUntilDeadline();
+    }
   } finally {
     acceptingResults = false;
-    clearTimeout(deadlineTimer);
   }
   const results = completed.filter((result): result is FlightSearchResult => result !== undefined);
 
   for (const result of results) {
       if (
-        result.status === "live" &&
-        result.selected_offer !== null
+        result.status === "live"
       ) {
         liveResults.push(result);
         continue;
@@ -322,44 +345,21 @@ export async function searchFlightCandidates(
       }
     }
 
-  if (liveResults.length > 0) {
-    const rankedResults = liveResults.sort((left, right) => {
-      const leftOffer = left.selected_offer!;
-      const rightOffer = right.selected_offer!;
-
-      const leftScore =
-        leftOffer.total_price_usd +
-        leftOffer.stop_count * 45 +
-        ((leftOffer.total_duration_minutes ?? 0) / 60) * 8;
-
-      const rightScore =
-        rightOffer.total_price_usd +
-        rightOffer.stop_count * 45 +
-        ((rightOffer.total_duration_minutes ?? 0) / 60) * 8;
-
-      return leftScore - rightScore;
-    });
-
-    const selected = rankedResults[0];
-
-    logger.info(
-      {
-        origin: selected.origin,
-        destination: selected.destination,
-        price: selected.selected_offer?.total_price_usd,
-        stops: selected.selected_offer?.stop_count,
-        durationMinutes: selected.selected_offer?.total_duration_minutes,
-        candidatesCompared: liveResults.length,
-      },
-      "Flight route selected"
-    );
-
+  const selected = buildFlightComparison(liveResults);
+  if (selected) {
+    logger.info({ origin: selected.origin, destination: selected.destination,
+      price: selected.selected_offer?.total_price_usd, stops: selected.selected_offer?.stop_count,
+      durationMinutes: selected.selected_offer?.total_duration_minutes, candidatesCompared: liveResults.length,
+      alternatives: selected.alternatives?.length ?? 0 }, "Flight route selected");
     return selected;
   }
 
   const fallbackInput = inputs[0];
 
   const nearbyResult = await search(fallbackInput, true);
+
+  const recheckedLive = buildFlightComparison([nearbyResult]);
+  if (recheckedLive) return recheckedLive;
 
   if (
     nearbyResult.status === "unavailable" &&

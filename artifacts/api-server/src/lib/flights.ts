@@ -1,3 +1,4 @@
+import { buildFlightComparison } from "./flight-alternatives";
 import { logger } from "./logger";
 import {
   fallbackSource,
@@ -33,6 +34,8 @@ export interface FlightLeg {
 }
 
 export interface FlightOffer {
+  duration_complete?: boolean;
+  stops_complete?: boolean;
   provider_offer_id: string;
   total_price_usd: number;
   outbound: FlightLeg;
@@ -46,7 +49,19 @@ export interface FlightOffer {
   source_metadata: DataSourceMetadata;
 }
 
+export interface FlightAlternative {
+  kind: "cheapest" | "fastest";
+  distinctions?: Array<"cheapest" | "fastest">;
+  origin: string;
+  destination: string;
+  departure_date: string;
+  return_date: string;
+  offer: FlightOffer;
+  reason: string;
+}
+
 export interface FlightSearchResult {
+  alternatives?: FlightAlternative[];
   status: "live" | "unavailable";
   origin: string;
   destination: string;
@@ -98,6 +113,7 @@ const CACHE_TTL_MS = 15 * 60 * 1000;
 const flightCache = new Map<string, { expiresAt: number; result: FlightSearchResult }>();
 
 function finiteNonNegative(value: unknown): number | null {
+  if (typeof value !== "number" && (typeof value !== "string" || !value.trim())) return null;
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
@@ -163,30 +179,9 @@ function emptyResult(input: FlightSearchInput, message: string): FlightSearchRes
   };
 }
 
-function selectRecommendedOffer(offers: FlightOffer[]): FlightOffer | null {
-  if (offers.length === 0) return null;
-  return [...offers].sort((left, right) => {
-    const leftValue = left.total_price_usd + (left.stop_count * 45) + ((left.total_duration_minutes ?? 0) / 60) * 8;
-    const rightValue = right.total_price_usd + (right.stop_count * 45) + ((right.total_duration_minutes ?? 0) / 60) * 8;
-    return leftValue - rightValue;
-  })[0] ?? null;
-}
-
-function recommendationReason(offers: FlightOffer[], selected: FlightOffer): string {
-  const cheapest = [...offers].sort((left, right) => left.total_price_usd - right.total_price_usd)[0];
-  if (!cheapest || cheapest.provider_offer_id === selected.provider_offer_id) {
-    return "Recommended using the best combined balance of price, stops, and total travel time.";
-  }
-  const priceDelta = Math.round(selected.total_price_usd - cheapest.total_price_usd);
-  const stopDelta = cheapest.stop_count - selected.stop_count;
-  const durationDelta = (cheapest.total_duration_minutes ?? 0) - (selected.total_duration_minutes ?? 0);
-  const advantages = [
-    stopDelta > 0 ? `${stopDelta} fewer connection${stopDelta === 1 ? "" : "s"}` : "",
-    durationDelta > 0 ? `about ${Math.round(durationDelta / 60)} fewer travel hours` : "",
-  ].filter(Boolean);
-  return advantages.length > 0
-    ? `Costs about $${priceDelta} more than the lowest fare but offers ${advantages.join(" and ")}.`
-    : "Recommended using the best combined balance of price, stops, and total travel time.";
+function completeSegments(raw: IgnavLeg | undefined, leg: FlightLeg): boolean {
+  return Array.isArray(raw?.segments) && raw.segments.length === leg.segments.length &&
+    leg.segments.every((segment, i) => i === 0 || leg.segments[i - 1].destination_airport === segment.origin_airport);
 }
 
 function shiftDate(date: string, days: number): string {
@@ -331,13 +326,15 @@ class IgnavFlightProvider implements FlightProvider {
               const id = text(itinerary.ignav_id);
               const outbound = normalizeLeg(itinerary.outbound);
               const inbound = normalizeLeg(itinerary.inbound);
-              if (price === null || currency !== "USD" || !id || !outbound || !inbound) return null;
+              if (price === null || price <= 0 || currency !== "USD" || !id || !outbound || !inbound) return null;
 
               const allSegments = [...outbound.segments, ...inbound.segments];
               const carriers = [...new Set(allSegments.map((segment) => segment.airline).filter((item): item is string => Boolean(item)))];
               const departure = outbound.segments[0]?.departure_datetime ?? null;
               const arrival = inbound.segments[inbound.segments.length - 1]?.arrival_datetime ?? null;
-              const duration = (outbound.duration_minutes ?? 0) + (inbound.duration_minutes ?? 0);
+              const durationComplete = (outbound.duration_minutes ?? 0) > 0 && (inbound.duration_minutes ?? 0) > 0;
+              const duration = durationComplete ? outbound.duration_minutes! + inbound.duration_minutes! : null;
+              const stopsComplete = completeSegments(itinerary.outbound, outbound) && completeSegments(itinerary.inbound, inbound);
               return {
                 provider_offer_id: id,
                 total_price_usd: Math.round(price * 100) / 100,
@@ -345,7 +342,9 @@ class IgnavFlightProvider implements FlightProvider {
                 inbound,
                 carriers,
                 stop_count: Math.max(0, allSegments.length - 2),
-                total_duration_minutes: duration > 0 ? duration : null,
+                total_duration_minutes: duration,
+                duration_complete: durationComplete,
+                stops_complete: stopsComplete,
                 departure_datetime: departure,
                 arrival_datetime: arrival,
                 booking_id: id,
@@ -436,18 +435,16 @@ class IgnavFlightProvider implements FlightProvider {
         );
       }
 
-      const selected = selectRecommendedOffer(offers);
-      const result: FlightSearchResult = {
+      const result = buildFlightComparison([{
         status: "live",
         origin: input.origin,
         destination: input.destination,
         departure_date: input.departure_date,
         return_date: input.return_date,
         offers,
-        selected_offer: selected,
+        selected_offer: null,
         source_metadata: sourceMetadata,
-        ...(selected ? { recommendation_reason: recommendationReason(offers, selected) } : {}),
-      };
+      }])!;
       flightCache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, result });
       logger.info({ provider: "Ignav", requestType: "round_trip", cache: "miss", resultCount: offers.length, latencyMs: Date.now() - startedAt }, "Flight search completed");
       return result;

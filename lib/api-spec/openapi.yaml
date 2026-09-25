@@ -888,6 +888,10 @@ components:
     FlightOffer:
       type: object
       properties:
+        duration_complete:
+          type: boolean
+        stops_complete:
+          type: boolean
         provider_offer_id:
           type: string
         total_price_usd:
@@ -933,9 +937,39 @@ components:
         - arrival_datetime
         - source_metadata
 
+    FlightAlternative:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: ["cheapest", "fastest"]
+        distinctions:
+          type: array
+          items:
+            type: string
+            enum: ["cheapest", "fastest"]
+        origin:
+          type: string
+        destination:
+          type: string
+        departure_date:
+          type: string
+        return_date:
+          type: string
+        offer:
+          $ref: "#/components/schemas/FlightOffer"
+        reason:
+          type: string
+      required: [kind, origin, destination, departure_date, return_date, offer, reason]
+
     FlightSearch:
       type: object
       properties:
+        alternatives:
+          type: array
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/FlightAlternative"
         status:
           type: string
           enum: ["live", "unavailable"]
