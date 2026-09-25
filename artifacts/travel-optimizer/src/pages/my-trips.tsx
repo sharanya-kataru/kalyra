@@ -1,6 +1,10 @@
+import { useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
+import { useTripContext } from '@/context/TripContext';
 import { ArrowUpRight, CalendarDays, ChevronRight, Compass, Users } from 'lucide-react';
 import { useLocation } from 'wouter';
-import { useListTrips } from '@workspace/api-client-react';
+import { useDeleteTrip, useListTrips, getListTripsQueryKey, getGetTripQueryKey, type Trip } from '@workspace/api-client-react';
 import { Logo } from '@/components/Logo';
 
 function formatDate(value: string) {
@@ -29,6 +33,34 @@ export default function MyTrips() {
   const [, setLocation] = useLocation();
   const tripsQuery = useListTrips();
   const trips = tripsQuery.data ?? [];
+  const deletion = useDeleteTrip();
+  const deleting = useRef(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { tripId, setTripId, setAnalysis, setItinerary } = useTripContext();
+
+  async function handleDelete(trip: Trip) {
+    if (deleting.current) return;
+    if (!window.confirm(`Delete your trip to ${trip.destination}? The trip, all itinerary versions, and refinement history will be permanently removed. This cannot be undone.`)) return;
+    deleting.current = true;
+    try {
+      await deletion.mutateAsync({ id: trip.id });
+      await queryClient.cancelQueries({ queryKey: getListTripsQueryKey() });
+      queryClient.setQueryData<Trip[]>(getListTripsQueryKey(), (current) => current?.filter((item) => item.id !== trip.id));
+      queryClient.removeQueries({ queryKey: getGetTripQueryKey(trip.id) });
+      // The saved-trip page currently also uses this custom query key.
+      queryClient.removeQueries({ queryKey: ['/api/trips', trip.id] });
+      if (tripId === trip.id) {
+        setTripId(null);
+        setAnalysis(null);
+        setItinerary(null);
+      }
+      void queryClient.invalidateQueries({ queryKey: getListTripsQueryKey() });
+      toast({ title: 'Trip deleted' });
+    } catch {
+      toast({ title: 'Could not delete trip', description: 'Please try again.', variant: 'destructive' });
+    } finally { deleting.current = false; }
+  }
 
   return (
     <div className="page-grain min-h-[100dvh] bg-[#f3f0e8] text-[#203b47]">
@@ -96,12 +128,9 @@ export default function MyTrips() {
         {trips.length > 0 && (
           <div className="grid gap-4 md:grid-cols-2">
             {trips.map((trip) => (
-              <button
-                key={trip.id}
-                type="button"
-                onClick={() => setLocation(`/trip/${trip.id}`)}
-                className="group rounded-2xl border border-[#d7d0c2] bg-[#fbfaf6] p-6 text-left transition hover:-translate-y-0.5 hover:border-[#bb7a52] hover:shadow-md"
-              >
+              <article key={trip.id} className="group rounded-2xl border border-[#d7d0c2] bg-[#fbfaf6] text-left transition hover:-translate-y-0.5 hover:border-[#bb7a52] hover:shadow-md">
+                <button type="button" onClick={() => setLocation(`/trip/${trip.id}`)}
+                  aria-label={`Open trip to ${trip.destination}`} className="block w-full p-6 text-left rounded-2xl">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-mono-custom text-[10px] uppercase tracking-[.16em] text-[#bb7a52]">
@@ -144,7 +173,15 @@ export default function MyTrips() {
                     {trip.latest_itinerary ? 'Itinerary ready' : 'Trip saved'}
                   </span>
                 </div>
-              </button>
+                </button>
+                <div className="px-6 pb-4 text-right">
+                  <button type="button" onClick={() => handleDelete(trip)} disabled={deletion.isPending}
+                    aria-label={`Delete trip to ${trip.destination}`}
+                    className="rounded px-2 py-1 text-xs text-[#7a2828] underline underline-offset-4 disabled:opacity-50">
+                    {deletion.isPending && deletion.variables?.id === trip.id ? 'Deleting…' : 'Delete'}
+                  </button>
+                </div>
+              </article>
             ))}
           </div>
         )}

@@ -653,6 +653,77 @@ export const useCreateTrip = <TError = ErrorType<ErrorResponse>,
       return useMutation(getCreateTripMutationOptions(options));
     }
 
+export const getDeleteTripUrl = (id: string,) => {
+
+
+
+
+  return `/api/trips/${id}`
+}
+
+/**
+ * @summary Permanently delete the authenticated owner's trip and its history
+ */
+export const deleteTrip = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteTripUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteTripMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTrip>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteTrip>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteTrip'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteTrip>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteTrip(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteTripMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTrip>>>
+
+    export type DeleteTripMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Permanently delete the authenticated owner's trip and its history
+ */
+export const useDeleteTrip = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTrip>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteTrip>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteTripMutationOptions(options));
+    }
+
 export const getGetTripUrl = (id: string,) => {
 
 

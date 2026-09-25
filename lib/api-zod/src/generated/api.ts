@@ -978,6 +978,19 @@ export const CreateTripResponse = zod.object({
 
 
 /**
+ * @summary Permanently delete the authenticated owner's trip and its history
+ */
+export const deleteTripPathIdRegExp = new RegExp('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+
+
+export const DeleteTripParams = zod.object({
+  "id": zod.coerce.string().regex(deleteTripPathIdRegExp)
+})
+
+export const DeleteTripResponse = zod.void()
+
+
+/**
  * @summary Get a trip by ID
  */
 export const GetTripParams = zod.object({

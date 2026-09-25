@@ -3,6 +3,7 @@ import { eq, desc, and, isNull } from "drizzle-orm";
 import { db, tripsTable, itinerariesTable, tripModificationsTable } from "@workspace/db";
 import {
   CreateTripBody,
+  DeleteTripParams,
   GetTripParams,
   AnalyzeTripParams,
   GenerateItineraryParams,
@@ -152,6 +153,35 @@ router.get("/trips", async (req, res): Promise<void> => {
   );
 
   res.status(200).json(results);
+});
+
+// DELETE /trips/:id — permanently delete only the authenticated owner's trip.
+router.delete("/trips/:id", async (req, res): Promise<void> => {
+  if (!req.authUser) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const params = DeleteTripParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const ownerId = req.authUser.id;
+  const deleted = await db.transaction(async (tx) => {
+    const owned = and(eq(tripsTable.id, params.data.id), eq(tripsTable.userId, ownerId));
+    const [trip] = await tx.select({ id: tripsTable.id }).from(tripsTable).where(owned).for("update");
+    if (!trip) return false;
+    // These tables have no cascading trip foreign keys. All cleanup must commit together.
+    await tx.delete(tripModificationsTable).where(eq(tripModificationsTable.tripId, trip.id));
+    await tx.delete(itinerariesTable).where(eq(itinerariesTable.tripId, trip.id));
+    await tx.delete(tripsTable).where(owned);
+    return true;
+  });
+  if (!deleted) {
+    res.status(404).json({ error: "Trip not found" });
+    return;
+  }
+  res.status(204).end();
 });
 
 // POST /trips — create a new trip

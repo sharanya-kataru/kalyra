@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
 import { eq } from "drizzle-orm";
-import { db, tripsTable, usersTable } from "@workspace/db";
+import { db, tripsTable, usersTable, itinerariesTable, tripModificationsTable } from "@workspace/db";
 import app from "../../artifacts/api-server/src/app";
 
 const createdEmails: string[] = [];
@@ -97,6 +97,8 @@ async function createTrip(
 
 async function cleanup(): Promise<void> {
   for (const tripId of createdTripIds) {
+    await db.delete(tripModificationsTable).where(eq(tripModificationsTable.tripId, tripId));
+    await db.delete(itinerariesTable).where(eq(itinerariesTable.tripId, tripId));
     await db.delete(tripsTable).where(eq(tripsTable.id, tripId));
   }
 
@@ -212,4 +214,56 @@ test("trip ownership, anonymous access, saving, and listing", async (t) => {
   // My Trips itself requires authentication.
   const anonymousList = await fetch(`${baseUrl}/api/trips`);
   assert.equal(anonymousList.status, 401);
+
+  await t.test("owner-only deletion rejects anonymous, other-account, and missing targets", async () => {
+    const anonymousId = await createTrip(baseUrl, "Delete anonymous test");
+    assert.equal((await fetch(`${baseUrl}/api/trips/${ownedTripId}`, { method: "DELETE" })).status, 401);
+    assert.equal((await fetch(`${baseUrl}/api/trips/${ownedTripId}`, { method: "DELETE", headers: { cookie: userBCookie } })).status, 404);
+    assert.equal((await fetch(`${baseUrl}/api/trips/${anonymousId}`, { method: "DELETE", headers: { cookie: userACookie } })).status, 404);
+    assert.equal((await fetch(`${baseUrl}/api/trips/00000000-0000-4000-8000-000000000000`, { method: "DELETE", headers: { cookie: userACookie } })).status, 404);
+    assert.equal((await fetch(`${baseUrl}/api/trips/${anonymousId}`)).status, 200);
+    assert.equal((await fetch(`${baseUrl}/api/trips/${ownedTripId}`, { headers: { cookie: userACookie } })).status, 200);
+  });
+
+  const versions = await db.insert(itinerariesTable).values([1, 2].map((version) => ({
+    tripId: ownedTripId, tripStrategy: "Test", route: [], destinations: [], dailySchedule: [],
+    budgetBreakdown: {}, reasoning: "Test", tradeoffs: [], version,
+  }))).returning();
+  await db.insert(tripModificationsTable).values({ tripId: ownedTripId, userRequest: "Test refinement",
+    previousItineraryId: versions[0].id, updatedItineraryId: versions[1].id, changesMade: [], reasoning: "Test" });
+
+  await t.test("failure after child deletion rolls the whole database transaction back", async (subtest) => {
+    const originalTransaction = db.transaction.bind(db);
+    // Inject a failure at the final delete while using a real PostgreSQL transaction.
+    const mock = subtest.mock.method(db, "transaction", (callback: Parameters<typeof db.transaction>[0]) =>
+      originalTransaction(async (tx) => {
+        const originalDelete = tx.delete.bind(tx);
+        subtest.mock.method(tx, "delete", (table: Parameters<typeof tx.delete>[0]) => {
+          if (table === tripsTable) throw new Error("Injected deletion failure");
+          return originalDelete(table);
+        });
+        return callback(tx);
+      }));
+    try {
+      assert.equal((await fetch(`${baseUrl}/api/trips/${ownedTripId}`, { method: "DELETE", headers: { cookie: userACookie } })).status, 500);
+    } finally { mock.mock.restore(); }
+    assert.equal((await db.select().from(tripsTable).where(eq(tripsTable.id, ownedTripId))).length, 1);
+    assert.equal((await db.select().from(itinerariesTable).where(eq(itinerariesTable.tripId, ownedTripId))).length, 2);
+    assert.equal((await db.select().from(tripModificationsTable).where(eq(tripModificationsTable.tripId, ownedTripId))).length, 1);
+  });
+
+  await t.test("owner deletes all versions/history, receives 204, and cannot reopen or list the trip", async () => {
+    const response = await fetch(`${baseUrl}/api/trips/${ownedTripId}`, { method: "DELETE", headers: { cookie: userACookie } });
+    assert.equal(response.status, 204);
+    assert.equal(await response.text(), "");
+    assert.equal((await fetch(`${baseUrl}/api/trips/${ownedTripId}`, { headers: { cookie: userACookie } })).status, 404);
+    assert.equal((await fetch(`${baseUrl}/api/trips/${ownedTripId}`)).status, 404);
+    const list = await (await fetch(`${baseUrl}/api/trips`, { headers: { cookie: userACookie } })).json() as Array<{ id: string }>;
+    assert.equal(list.some((trip) => trip.id === ownedTripId), false);
+    assert.equal(list.some((trip) => trip.id === anonymousTripId), true);
+    assert.equal((await db.select().from(itinerariesTable).where(eq(itinerariesTable.tripId, ownedTripId))).length, 0);
+    assert.equal((await db.select().from(tripModificationsTable).where(eq(tripModificationsTable.tripId, ownedTripId))).length, 0);
+    assert.equal((await fetch(`${baseUrl}/api/trips/${anonymousTripId}`, { headers: { cookie: userACookie } })).status, 200);
+  });
+
 });

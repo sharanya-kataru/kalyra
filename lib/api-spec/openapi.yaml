@@ -186,6 +186,38 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /trips/{id}:
+    delete:
+      operationId: deleteTrip
+      tags: [trips]
+      summary: Permanently delete the authenticated owner's trip and its history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+      responses:
+        "204":
+          description: Trip deleted
+        "400":
+          description: Invalid trip ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Trip not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     get:
       operationId: getTrip
       tags: [trips]
