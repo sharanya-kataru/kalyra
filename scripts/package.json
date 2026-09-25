@@ -6,10 +6,15 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:decision-engine": "tsx --test ./src/decision-engine.test.ts"
+    "test:decision-engine": "tsx --test ./src/decision-engine.test.ts",
+    "test:auth": "tsx --env-file=../.env --test ./src/password.test.ts ./src/auth.test.ts"
+  },
+  "dependencies": {
+    "@workspace/db": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "drizzle-orm": "^0.45.3",
     "tsx": "catalog:"
   }
 }

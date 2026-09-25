@@ -18,6 +18,59 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Create an account and start a session
+ */
+export const signUpBodyPasswordMin = 8;
+export const signUpBodyPasswordMax = 72;
+
+
+
+export const SignUpBody = zod.object({
+  "email": zod.string(),
+  "password": zod.string().min(signUpBodyPasswordMin).max(signUpBodyPasswordMax)
+})
+
+export const SignUpResponse = zod.object({
+  "id": zod.string(),
+  "email": zod.string()
+})
+
+
+/**
+ * @summary Log in and start a session
+ */
+export const logInBodyPasswordMin = 8;
+export const logInBodyPasswordMax = 72;
+
+
+
+export const LogInBody = zod.object({
+  "email": zod.string(),
+  "password": zod.string().min(logInBodyPasswordMin).max(logInBodyPasswordMax)
+})
+
+export const LogInResponse = zod.object({
+  "id": zod.string(),
+  "email": zod.string()
+})
+
+
+/**
+ * @summary End the current session
+ */
+export const LogOutResponse = zod.void()
+
+
+/**
+ * @summary Return the current authenticated user
+ */
+export const GetMeResponse = zod.object({
+  "id": zod.string(),
+  "email": zod.string()
+})
+
+
+/**
  * @summary List all destinations in the scoring catalog
  */
 export const ListDestinationsResponse = zod.object({

@@ -13,6 +13,20 @@ export interface ErrorResponse {
   error: string;
 }
 
+export interface AuthCredentials {
+  email: string;
+  /**
+     * @minLength 8
+     * @maxLength 72
+     */
+  password: string;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+}
+
 export interface TravelerProfile {
   interests: string[];
   travel_style: string;

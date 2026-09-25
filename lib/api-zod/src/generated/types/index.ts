@@ -8,6 +8,8 @@
 
 export * from './activityPlace';
 export * from './alternativeStrategy';
+export * from './authCredentials';
+export * from './authUser';
 export * from './budgetItem';
 export * from './budgetSummary';
 export * from './budgetSummaryCurrency';
