@@ -1,3 +1,4 @@
+import { resolveOptimizationProfile, type OptimizationMode } from "./optimization-profile";
 import { prepareItineraryWeather, markWeatherPrepared } from "./itinerary-weather";
 import { logger } from "./logger";
 import { cleanWalkingData, validPlace, type ActivityPlace, type WalkingLeg } from "./walking";
@@ -32,6 +33,7 @@ import { estimatedSource, type DataSourceMetadata } from "./sources";
 // ---------------------------------------------------------------------------
 
 export interface TravelerProfile {
+  optimization_mode?: OptimizationMode;
   interests: string[];
   travel_style: string;
   preferences: string[];
@@ -617,6 +619,7 @@ export async function generateItinerary(trip: TripData): Promise<ItineraryData> 
   const dailyItinerary = await discoverDailyActivities(withWeather, trip, getPlacesProvider());
   return markWeatherPrepared({
     ...withWeather,
+    trip_strategy: `${withWeather.trip_strategy} ${resolveOptimizationProfile(trip.traveler_profile.optimization_mode).description}`,
     daily_itinerary: dailyItinerary,
     daily_schedule: legacyScheduleFromRich(dailyItinerary),
   });
@@ -1014,7 +1017,7 @@ function buildFallbackItinerary(trip: TripData, totalDays: number): Partial<Itin
   });
 
   return {
-    trip_strategy: `A ${totalDays}-day journey through ${trip.destination} with ${selection.base_count} base${selection.base_count === 1 ? "" : "s"} selected by deterministic interest, budget, pace, season, crowd, and transport fit.`,
+    trip_strategy: `A ${totalDays}-day journey through ${trip.destination.charAt(0).toUpperCase() + trip.destination.slice(1)} with ${selection.base_count} base${selection.base_count === 1 ? "" : "s"} selected by deterministic interest, budget, pace, season, crowd, and transport fit.`,
     route,
     destinations: scoredDestinations,
     daily_schedule,

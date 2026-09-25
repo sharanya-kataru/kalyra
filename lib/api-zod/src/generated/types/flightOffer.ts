@@ -9,6 +9,8 @@ import type { DataSourceMetadata } from './dataSourceMetadata';
 import type { FlightLeg } from './flightLeg';
 
 export interface FlightOffer {
+  duration_complete?: boolean;
+  stops_complete?: boolean;
   provider_offer_id: string;
   /** @minimum 0 */
   total_price_usd: number;

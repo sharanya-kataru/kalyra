@@ -65,6 +65,7 @@ function tripBody(destination: string) {
     budget_preference: "Balance",
     traveler_profile: {
       interests: ["Food"],
+      optimization_mode: "stay_local",
       travel_style: "Balanced",
       preferences: [],
     },
@@ -141,6 +142,7 @@ test("trip ownership, anonymous access, saving, and listing", async (t) => {
     headers: { cookie: userACookie },
   });
   assert.equal(ownerFetch.status, 200);
+  assert.equal((await ownerFetch.json() as { traveler_profile: { optimization_mode?: string } }).traveler_profile.optimization_mode, "stay_local");
 
   // Owned trips are hidden without authentication.
   const noSessionFetch = await fetch(`${baseUrl}/api/trips/${ownedTripId}`);
@@ -158,6 +160,8 @@ test("trip ownership, anonymous access, saving, and listing", async (t) => {
     headers: { cookie: userACookie },
   });
   assert.equal(save.status, 200);
+  const reopened = await fetch(`${baseUrl}/api/trips/${anonymousTripId}`, { headers: { cookie: userACookie } });
+  assert.equal((await reopened.json() as { traveler_profile: { optimization_mode?: string } }).traveler_profile.optimization_mode, "stay_local");
 
   const [savedTrip] = await db
     .select({ userId: tripsTable.userId })
@@ -166,6 +170,27 @@ test("trip ownership, anonymous access, saving, and listing", async (t) => {
     .limit(1);
 
   assert.equal(savedTrip?.userId, storedOwnedTrip?.userId);
+
+  await t.test("refine and date regeneration retain the persisted daily planning mode", async () => {
+    const geo = process.env.GEOAPIFY_API_KEY, ignav = process.env.IGNAV_API_KEY;
+    delete process.env.GEOAPIFY_API_KEY;
+    delete process.env.IGNAV_API_KEY;
+    try {
+      const generated = await fetch(`${baseUrl}/api/trips/${anonymousTripId}/generate`, { method: "POST", headers: { cookie: userACookie } });
+      assert.equal(generated.status, 200);
+      for (const user_request of ["Keep this plan", "Change dates to 2026-10-02 to 2026-10-09"]) {
+        const modified = await fetch(`${baseUrl}/api/trips/${anonymousTripId}/modify`, { method: "POST", headers: { cookie: userACookie, "content-type": "application/json" }, body: JSON.stringify({ user_request }) });
+        assert.equal(modified.status, 200);
+        const response = await fetch(`${baseUrl}/api/trips/${anonymousTripId}`, { headers: { cookie: userACookie } });
+        const body = await response.json() as { traveler_profile: { optimization_mode?: string }; latest_itinerary: { trip_strategy: string } };
+        assert.equal(body.traveler_profile.optimization_mode, "stay_local");
+        assert.match(body.latest_itinerary.trip_strategy, /stronger weight to geographic grouping/);
+      }
+    } finally {
+      if (geo !== undefined) process.env.GEOAPIFY_API_KEY = geo;
+      if (ignav !== undefined) process.env.IGNAV_API_KEY = ignav;
+    }
+  });
 
   // Saving again as the same owner is idempotent.
   const saveAgain = await fetch(`${baseUrl}/api/trips/${anonymousTripId}/save`, {

@@ -6,10 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DataSourceMetadata } from './dataSourceMetadata';
+import type { FlightAlternative } from './flightAlternative';
 import type { FlightOffer } from './flightOffer';
 import type { FlightSearchStatus } from './flightSearchStatus';
 
 export interface FlightSearch {
+  /** @maxItems 2 */
+  alternatives?: FlightAlternative[];
   status: FlightSearchStatus;
   origin: string;
   destination: string;

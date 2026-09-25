@@ -1,3 +1,4 @@
+import { planningStyle } from "@/lib/planning-style";
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { ArrowLeft, ArrowRight, ChevronDown, Clock3, RouteIcon, Sparkles } from 'lucide-react';
@@ -9,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function Analysis() {
   const [, setLocation] = useLocation();
   const [expanded, setExpanded] = useState(0);
-  const { tripId, analysis, setAnalysis, setItinerary } = useTripContext();
+  const { planData, tripId, analysis, setAnalysis, setItinerary } = useTripContext();
   const { toast } = useToast();
 
   const analyzeTrip = useAnalyzeTrip();
@@ -40,6 +41,8 @@ export default function Analysis() {
       );
     }
   }, [tripId]);
+
+  const style = planningStyle(planData?.travelerProfile.optimization_mode);
 
   const handleGenerate = () => {
     if (!tripId) return;
@@ -83,6 +86,8 @@ export default function Analysis() {
           </button>
         </div>
         <div className="border-b border-[#d7d0c2] pb-16 pt-12 sm:pt-24">
+          <p className="text-xs font-semibold uppercase tracking-wider">Daily planning style · {style.label}</p>
+          <p className="mt-2 text-sm text-[#65706d]">{style.description} This applies to daily activities, not destination ranking.</p>
           {isLoading ? (
             <div className="max-w-3xl">
               <div className="h-4 w-48 animate-pulse rounded bg-[#d7d0c2]" />

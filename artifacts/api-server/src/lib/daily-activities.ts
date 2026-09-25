@@ -1,3 +1,4 @@
+import { resolveOptimizationProfile } from "./optimization-profile";
 import type { DailyItinerary, ItineraryData, TripData } from "./ai";
 import type { PlaceResult, PlacesProvider } from "./places";
 import { cleanWalkingData, validPlace } from "./walking";
@@ -43,7 +44,10 @@ export async function discoverDailyActivities(
   trip: TripData,
   provider: PlacesProvider | null
 ): Promise<DailyItinerary[]> {
-  if (!provider) return itinerary.daily_itinerary;
+  const profile = resolveOptimizationProfile(trip.traveler_profile.optimization_mode);
+  const isUnhurried = /slow|unhurried|relaxed|easy/i.test(trip.traveler_profile.travel_style ?? "");
+  const ordinaryActivities = isUnhurried ? 1 : 2;
+  if (!provider && ordinaryActivities === 2) return itinerary.daily_itinerary;
 
   const preferences = [
     ...trip.traveler_profile.interests,
@@ -61,6 +65,7 @@ export async function discoverDailyActivities(
     const dayCount = itinerary.daily_itinerary.filter((day) => day.location === location).length;
     const limit = Math.min(20, Math.max(10, dayCount * 4));
     // Keep the existing search calls, but request enough candidates for daily grouping.
+    if (!provider) return [location, [] as PlaceResult[]] as const;
     const searches: Array<() => Promise<PlaceResult[]>> = [];
     if (wantsNature) searches.push(() => provider.search_nature(query, limit));
     if (wantsCulture) searches.push(() => provider.search_points_of_interest(query, limit));
@@ -86,15 +91,22 @@ export async function discoverDailyActivities(
     // travel. Evenings remain flexible: place opening hours are not available.
     if (index === days.length - 1) return day;
     const updated = { ...day };
-    const periods = index === 0 || days[index - 1].location !== day.location
+    const protectedMorning = index === 0 || days[index - 1].location !== day.location;
+    if (!protectedMorning && ordinaryActivities === 1) {
+      updated.afternoon = { activity: "Free time", description: "Leave room to wander, rest, or explore spontaneously.", estimated_cost_usd: 0 };
+    }
+    const periods = protectedMorning
       ? ["afternoon"] as const
-      : ["morning", "afternoon"] as const;
+      : ordinaryActivities=== 1 ? ["morning"] as const : ["morning", "afternoon"] as const;
     const selected = used.get(day.location) ?? new Set<string>();
     used.set(day.location, selected);
     const selectedAtLocation = history.get(day.location) ?? [];
     history.set(day.location, selectedAtLocation);
-    let previous: PlaceResult | undefined;
-    let changed = false;
+    let previous: PlaceResult | undefined =
+      trip.traveler_profile.optimization_mode === "stay_local"
+        ? selectedAtLocation.at(-1)
+        : undefined;
+    let changed = !protectedMorning && ordinaryActivities === 1;
     for (const period of periods) {
       const candidates = (pools.get(day.location) ?? []).filter((place) => !selected.has(activityIdentity(place)));
       const choice = rankActivities(candidates, trip, { previous, selectedAtLocation, weather: day.weather, date: day.date, location: day.location })[0];

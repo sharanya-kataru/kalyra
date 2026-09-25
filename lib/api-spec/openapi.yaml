@@ -430,6 +430,9 @@ components:
     TravelerProfile:
       type: object
       properties:
+        optimization_mode:
+          type: string
+          enum: [balanced, interest_first, stay_local]
         interests:
           type: array
           items:

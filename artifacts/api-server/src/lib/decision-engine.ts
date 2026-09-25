@@ -131,7 +131,7 @@ function normalizedBudgetPreference(value: string): "lean" | "balanced" | "splur
 
 function normalizedPace(value: string): "slow" | "fast" | "balanced" {
   if (/slow|unhurried|relaxed|easy/i.test(value)) return "slow";
-  if (/fast|active|packed|see more/i.test(value)) return "fast";
+  if (/fast|active|packed|see more|see it all/i.test(value)) return "fast";
   return "balanced";
 }
 

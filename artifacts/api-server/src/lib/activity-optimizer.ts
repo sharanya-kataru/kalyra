@@ -1,3 +1,4 @@
+import { resolveOptimizationProfile } from "./optimization-profile";
 import type { TripData } from "./ai";
 import type { PlaceResult } from "./places";
 import type { WeatherSummary } from "./weather";
@@ -20,7 +21,7 @@ const INDOOR = ["entertainment.museum", "entertainment.culture.gallery"];
 const MEANINGFUL = [...FAMILIES.flatMap((family) => family.categories), "tourism.attraction"];
 // Interest dominates a single proximity bonus. Baseline eligibility is never zero.
 const BASE = 10, CATEGORY_BONUS = 10, INTEREST_BONUS = 30, MAX_INTEREST = 60;
-const PROXIMITY_BONUS = 30, BAD_WEATHER_OUTDOOR = -10, BAD_WEATHER_INDOOR = 5;
+const BAD_WEATHER_OUTDOOR = -10, BAD_WEATHER_INDOOR = 5;
 // Diversity is secondary: 8 per prior overlapping-family selection, plus 8
 // for repeating the current day's previous family. Cap at 36 and 60% of
 // interest fit, so it cannot erase personalization. Count each place once,
@@ -29,7 +30,7 @@ const REPETITION_WEIGHT = 8, MAX_DIVERSITY_PENALTY = 36;
 const TOLERANCE_KM = { slow: 1, balanced: 3, fast: 6 };
 export function activityPace(style: string): keyof typeof TOLERANCE_KM {
   if (/slow|unhurried|relaxed|easy/i.test(style)) return "slow";
-  if (/fast|active|packed|see more/i.test(style)) return "fast";
+  if (/fast|active|packed|see more|see it all/i.test(style)) return "fast";
   return "balanced";
 }
 const normalized = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
@@ -60,6 +61,7 @@ export interface ActivityContext {
   location?: string;
 }
 export function scoreActivity(place: PlaceResult, trip: TripData, context: ActivityContext = {}) {
+  const profile = resolveOptimizationProfile(trip.traveler_profile.optimization_mode);
   const preferences = [...trip.traveler_profile.interests, ...trip.traveler_profile.preferences].join(" ");
   const interestMatches = FAMILIES.filter((family) => family.interests.test(preferences))
     .map((family) => ({ dimension: family.dimension,
@@ -85,7 +87,7 @@ export function scoreActivity(place: PlaceResult, trip: TripData, context: Activ
   const diversityAdjustment = 0 - Math.min(MAX_DIVERSITY_PENALTY, interest * 0.6,
     REPETITION_WEIGHT * (repeatedSelections + Number(repeatsPrevious)));
   const distanceKm = context.previous ? geographicDistanceKm(context.previous, place) : null;
-  const proximity = (tolerance: number) => distanceKm === null ? 0 : PROXIMITY_BONUS * Math.max(0, 1 - distanceKm / tolerance);
+  const proximity = (tolerance: number) => distanceKm === null ? 0 : profile.proximityMaximum * Math.max(0, 1 - distanceKm / tolerance);
   const geography = proximity(TOLERANCE_KM.balanced);
   const pace = activityPace(trip.traveler_profile.travel_style);
   const paceAdjustment = proximity(TOLERANCE_KM[pace]) - geography;
@@ -101,7 +103,7 @@ export function scoreActivity(place: PlaceResult, trip: TripData, context: Activ
   const confidence = badWeather ? 1 : wetHistory ? 0.5 : 0;
   const weatherAdjustment = confidence === 0 ? 0 : confidence * (hasCategory(place, OUTDOOR) ? BAD_WEATHER_OUTDOOR :
     hasCategory(place, INDOOR) ? BAD_WEATHER_INDOOR : 0);
-  return { total: base + interest + geography + paceAdjustment + weatherAdjustment + diversityAdjustment,
+  return { total: base + interest * profile.interestMultiplier + geography + paceAdjustment + weatherAdjustment + diversityAdjustment,
     base, interest, interestMatches, distanceKm, geography, pace, paceAdjustment, weatherAdjustment, diversityAdjustment, repeatedSelections, repeatsPrevious };
 }
 

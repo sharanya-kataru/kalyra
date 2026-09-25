@@ -5,8 +5,10 @@
  * Kalyra Travel Experience Optimization API
  * OpenAPI spec version: 0.1.0
  */
+import type { TravelerProfileOptimizationMode } from './travelerProfileOptimizationMode';
 
 export interface TravelerProfile {
+  optimization_mode?: TravelerProfileOptimizationMode;
   interests: string[];
   travel_style: string;
   preferences: string[];

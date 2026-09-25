@@ -1,22 +1,6 @@
+import type { PlanData } from "@/lib/plan-draft";
 import { createContext, useContext, useState, ReactNode } from 'react';
 import type { TripAnalysis, Itinerary } from '@workspace/api-client-react';
-
-interface TravelerProfile {
-  interests: string[];
-  travel_style: string;
-  preferences: string[];
-}
-
-interface PlanData {
-  destination: string;
-  startingLocation: string;
-  startDate: string;
-  endDate: string;
-  travelerCount: string;
-  budget: string;
-  budgetPreference: string;
-  travelerProfile: TravelerProfile;
-}
 
 interface TripContextValue {
   planData: PlanData | null;

@@ -1,3 +1,5 @@
+import { planningStyle } from "@/lib/planning-style";
+import { flightMetrics, flightDeltas, visibleFlightAlternatives } from "@/lib/flight-display";
 import { weatherPresentation } from "@/lib/weather-label";
 import { Fragment, useState, useEffect } from 'react';
 import { useLocation, useRoute } from 'wouter';
@@ -633,8 +635,19 @@ export default function Trip() {
                 Your route, considered
               </p>
               <h1 className="mt-4 font-display text-5xl leading-[.93] tracking-[-.06em] sm:text-8xl">
-                {itinerary.trip_strategy}
+                Your {planData?.destination || "trip"} itinerary
               </h1>
+              <p className="mt-6 max-w-3xl text-base leading-relaxed text-[#65706d] sm:text-lg">
+                {itinerary.trip_strategy}
+              </p>
+              <div className="mt-5">
+                <p className="text-xs font-semibold uppercase tracking-wider">
+                  Daily planning style · {planningStyle(planData?.travelerProfile.optimization_mode).label}
+                </p>
+                <p className="mt-1 max-w-2xl text-sm text-[#65706d]">
+                  {planningStyle(planData?.travelerProfile.optimization_mode).description}
+                </p>
+              </div>
               <p className="mt-7 flex items-center gap-2 text-sm text-[#65706d]">
                 <MapPin size={15} /> {locationNames}
               </p>
@@ -1203,17 +1216,7 @@ function LiveTravelData({
   const isNearbyDateEstimate =
     flight?.status === 'unavailable' && selected != null;
   const weatherCount = data.weather?.length ?? 0;
-  const surfacedOffers = selected
-    ? [selected, ...(flight?.offers ?? []).filter((offer: any) => offer.provider_offer_id !== selected.provider_offer_id).slice(0, 2)]
-    : [];
-  const lowestPriceId = (flight?.offers ?? []).slice().sort((left: any, right: any) => left.total_price_usd - right.total_price_usd)[0]?.provider_offer_id;
-  const fastestId = (flight?.offers ?? []).slice().sort((left: any, right: any) => (left.total_duration_minutes ?? Infinity) - (right.total_duration_minutes ?? Infinity))[0]?.provider_offer_id;
-  const formatDuration = (minutes: number | null | undefined) => {
-    if (!minutes) return '—';
-    const hours = Math.floor(minutes / 60);
-    const remainder = minutes % 60;
-    return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
-  };
+  const alternatives = visibleFlightAlternatives(flight);
 
   return (
     <section className="border-t border-[#d7d0c2] py-12 sm:py-16" data-testid="live-travel-data">
@@ -1241,7 +1244,7 @@ function LiveTravelData({
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-2">
               <Plane size={17} className="text-[#bb7a52]" />
-              <p className="text-sm font-semibold">Round-trip flights</p>
+              <p className="text-sm font-semibold">Flight recommendation</p>
             </div>
             <SourcePill
               label={flight?.source_metadata?.label ?? 'FALLBACK'}
@@ -1253,6 +1256,7 @@ function LiveTravelData({
             <>
               <div className="mt-7 flex items-end justify-between gap-3">
                 <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide">Recommended</p>
                   <p className="font-display text-4xl">{formatUsd(selected.total_price_usd)} total</p>
                   <p className="mt-1 text-xs text-[#65706d]">
                     {formatUsd(selected.total_price_usd / travelerCount)} per person
@@ -1264,12 +1268,12 @@ function LiveTravelData({
                   </p>
                 </div>
                 <p className="text-right text-xs text-[#65706d]">
-                  {selected.stop_count === 0 ? 'Nonstop' : `${selected.stop_count} stop${selected.stop_count === 1 ? '' : 's'}`}<br />
-                  {formatDuration(selected.total_duration_minutes)}
+                  {flightMetrics(selected)}
                 </p>
               </div>
-              <p className="mt-4 text-xs leading-5 text-[#65706d]">
-                {flight.recommendation_reason ?? 'Kalyra chose a balanced offer using price, stops, and total travel time rather than cheapest price alone.'}
+              <p className="mt-4 text-[10px] uppercase tracking-wide text-[#65706d]">Why Kalyra chose this</p>
+              <p className="mt-1 text-xs leading-5 text-[#65706d]">
+                {flight.recommendation_reason ?? 'The selected live offer for this itinerary.'}
               </p>
               {data.planning_note && (
                 <p className="mt-3 rounded-lg bg-[#f5f3ec] px-3 py-2 text-xs leading-5 text-[#65706d]">
@@ -1279,33 +1283,22 @@ function LiveTravelData({
               <p className="mt-3 text-[10px] uppercase tracking-wide text-[#a0a8a4]">
                 Last checked {formatCheckedAt(flight.source_metadata?.retrieved_at)}
               </p>
-              {flight.offers.length > 1 && (
+              {alternatives.length > 0 && (
                 <div className="mt-4 border-t border-[#e2ddd2] pt-4">
-                  <p className="text-[10px] uppercase tracking-wide text-[#a0a8a4]">Shortlist</p>
+                  <p className="text-[10px] uppercase tracking-wide text-[#65706d]">Other ways to optimize</p>
                   <div className="mt-2 space-y-2">
-                    {surfacedOffers.map((offer: any) => {
-                      const label = offer.provider_offer_id === selected.provider_offer_id
-                        ? 'KALYRA RECOMMENDED'
-                        : offer.provider_offer_id === lowestPriceId
-                          ? 'LOWEST PRICE'
-                          : offer.provider_offer_id === fastestId
-                            ? 'FASTEST'
-                            : 'ALTERNATIVE';
-                      return (
-                        <div key={offer.provider_offer_id} className="flex items-center justify-between gap-3 rounded-lg bg-[#f5f3ec] px-3 py-2 text-xs">
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold">{offer.carriers.join(' + ') || 'Carrier unavailable'}</p>
-                            <p className="mt-0.5 truncate text-[10px] text-[#65706d]">
-                              {formatFlightDateTime(offer.departure_datetime)} → {formatFlightDateTime(offer.arrival_datetime)}
-                            </p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <p className="font-semibold">{formatUsd(offer.total_price_usd)}</p>
-                            <p className="text-[10px] text-[#65706d]">{label}</p>
-                          </div>
+                    {alternatives.map((alternative) => (
+                      <div key={`${alternative.origin}-${alternative.destination}-${alternative.offer.provider_offer_id}`}
+                        className="rounded-lg bg-[#f5f3ec] px-3 py-3 text-xs">
+                        <div className="flex flex-wrap justify-between gap-2 font-semibold">
+                          <p>{(alternative.distinctions ?? [alternative.kind]).map((kind) => kind === 'cheapest' ? 'Cheapest' : 'Fastest').join(' · ')} · {alternative.origin} → {alternative.destination}</p>
+                          <p>{formatUsd(alternative.offer.total_price_usd)} total</p>
                         </div>
-                      );
-                    })}
+                        <p className="mt-1 text-[#65706d]">{flightMetrics(alternative.offer)}</p>
+                        <p className="mt-2 font-semibold">{flightDeltas(alternative.offer, selected)}</p>
+                        <p className="mt-1 text-[#65706d]">{alternative.reason}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

@@ -27,7 +27,17 @@ export interface AuthUser {
   email: string;
 }
 
+export type TravelerProfileOptimizationMode = typeof TravelerProfileOptimizationMode[keyof typeof TravelerProfileOptimizationMode];
+
+
+export const TravelerProfileOptimizationMode = {
+  balanced: 'balanced',
+  interest_first: 'interest_first',
+  stay_local: 'stay_local',
+} as const;
+
 export interface TravelerProfile {
+  optimization_mode?: TravelerProfileOptimizationMode;
   interests: string[];
   travel_style: string;
   preferences: string[];
@@ -295,6 +305,8 @@ export interface FlightLeg {
 }
 
 export interface FlightOffer {
+  duration_complete?: boolean;
+  stops_complete?: boolean;
   provider_offer_id: string;
   /** @minimum 0 */
   total_price_usd: number;
@@ -310,6 +322,33 @@ export interface FlightOffer {
   source_metadata: DataSourceMetadata;
 }
 
+export type FlightAlternativeKind = typeof FlightAlternativeKind[keyof typeof FlightAlternativeKind];
+
+
+export const FlightAlternativeKind = {
+  cheapest: 'cheapest',
+  fastest: 'fastest',
+} as const;
+
+export type FlightAlternativeDistinctionsItem = typeof FlightAlternativeDistinctionsItem[keyof typeof FlightAlternativeDistinctionsItem];
+
+
+export const FlightAlternativeDistinctionsItem = {
+  cheapest: 'cheapest',
+  fastest: 'fastest',
+} as const;
+
+export interface FlightAlternative {
+  kind: FlightAlternativeKind;
+  distinctions?: FlightAlternativeDistinctionsItem[];
+  origin: string;
+  destination: string;
+  departure_date: string;
+  return_date: string;
+  offer: FlightOffer;
+  reason: string;
+}
+
 export type FlightSearchStatus = typeof FlightSearchStatus[keyof typeof FlightSearchStatus];
 
 
@@ -319,6 +358,8 @@ export const FlightSearchStatus = {
 } as const;
 
 export interface FlightSearch {
+  /** @maxItems 2 */
+  alternatives?: FlightAlternative[];
   status: FlightSearchStatus;
   origin: string;
   destination: string;

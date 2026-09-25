@@ -1,3 +1,5 @@
+import { hydratePlanDraft } from "@/lib/plan-draft";
+import { planningStyles, type PlanningMode } from "@/lib/planning-style";
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
@@ -41,7 +43,7 @@ const planSteps = [
   { key: 'travelerCount', eyebrow: 'A route should fit the company', title: 'How many people are traveling?', hint: "We'll use this to estimate flights, stays, food, and your total trip cost.", type: 'choice', options: ['1', '2', '3', '4', '5', '6', '7', '8'] },
   { key: 'budget', eyebrow: 'Make room for what matters', title: 'What feels comfortable?', hint: 'A total trip budget in USD, excluding international flights.', type: 'choice', options: ['$900–1,400', '$1,400–1,800', '$1,800–2,400', '$2,400+'] },
   { key: 'budgetPreference', eyebrow: "There's no wrong answer", title: 'Where should we spend well?', hint: "We'll use this to make the right trade-offs.", type: 'choice', options: ['Keep it lean', 'Balance', 'A few beautiful splurges'] },
-  { key: 'pace', eyebrow: 'The most important detail', title: 'How should it feel?', hint: 'Think about how you want to come home feeling.', type: 'choice', options: ['Unhurried', 'A little of everything', 'See it all'] },
+  { key: 'pace', eyebrow: 'Your travel rhythm', title: "What's your travel pace?", hint: 'How much do you typically like to fit into a day?', type: 'choice', options: ['Unhurried', 'A little of everything', 'See it all'] },
 ];
 
 const MONTHS: Record<string, string> = {
@@ -139,23 +141,25 @@ function parseDateRange(input: string): [string, string] | null {
 export default function Plan() {
   const [, setLocation] = useLocation();
   const [step, setStep] = useState(0);
-  const { setPlanData, setTripId, setAnalysis, setItinerary } = useTripContext();
+  const { planData, setPlanData, setTripId, setAnalysis, setItinerary } = useTripContext();
   const { toast } = useToast();
+  const draft = hydratePlanDraft(planData);
   
-  const [destination, setDestination] = useState('');
-  const [startingLocation, setStartingLocation] = useState('');
+  const [destination, setDestination] = useState(draft.destination);
+  const [startingLocation, setStartingLocation] = useState(draft.startingLocation);
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [dates, setDates] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [travelerCount, setTravelerCount] = useState('');
-  const [budget, setBudget] = useState('');
-  const [budgetPreference, setBudgetPreference] = useState('');
-  const [pace, setPace] = useState('');
-  const [interests, setInterests] = useState<string[]>([]);
-  const [preferences, setPreferences] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState(draft.startDate);
+  const [endDate, setEndDate] = useState(draft.endDate);
+  const [travelerCount, setTravelerCount] = useState(draft.travelerCount);
+  const [budget, setBudget] = useState(draft.budget);
+  const [budgetPreference, setBudgetPreference] = useState(draft.budgetPreference);
+  const [pace, setPace] = useState(draft.travelerProfile.travel_style);
+  const [optimizationMode, setOptimizationMode] = useState<PlanningMode>(draft.travelerProfile.optimization_mode ?? 'balanced');
+  const [interests, setInterests] = useState<string[]>(draft.travelerProfile.interests);
+  const [preferences, setPreferences] = useState<string[]>(draft.travelerProfile.preferences);
 
   const createTrip = useCreateTrip();
 
@@ -271,6 +275,7 @@ export default function Plan() {
         travelerProfile: {
           interests,
           travel_style: pace,
+          optimization_mode: optimizationMode,
           preferences,
         },
       };
@@ -291,6 +296,7 @@ export default function Plan() {
             traveler_profile: {
               interests,
               travel_style: pace,
+              optimization_mode: optimizationMode,
               preferences,
             },
           },
@@ -493,6 +499,18 @@ export default function Plan() {
             {step === 6 && (
               <div className="mt-10 space-y-7 border-t border-[#d7d0c2] pt-7">
                 <div>
+                  <fieldset className="mb-7">
+                    <legend className="mb-3 text-xs font-semibold uppercase tracking-wider">What should Kalyra prioritize?</legend>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {(Object.keys(planningStyles) as PlanningMode[]).map((mode) => (
+                        <label key={mode} className={`cursor-pointer rounded-xl border p-4 transition focus-within:ring-2 focus-within:ring-[#203b47] ${optimizationMode === mode ? 'border-[#203b47] bg-[#203b47] text-[#f5f0e6]' : 'border-[#c9c1b2]'}`}>
+                          <input type="radio" name="optimization-mode" value={mode} checked={optimizationMode === mode} onChange={() => setOptimizationMode(mode)} className="mr-2 accent-[#203b47]" />
+                          <span className="text-sm font-semibold">{planningStyles[mode].label}</span>
+                          <span className="mt-2 block text-xs leading-relaxed">{planningStyles[mode].description}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
                   <p className="mb-3 text-xs font-semibold">What pulls you in?</p>
                   <div className="flex flex-wrap gap-2">
                     {['Mountain landscapes', 'Local food', 'Art & design', 'Water & swimming', 'Small-town life', 'Architecture'].map(

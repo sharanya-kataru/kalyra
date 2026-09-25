@@ -60,7 +60,7 @@ function buildTripData(trip: typeof tripsTable.$inferSelect): TripData {
     traveler_count: trip.travelerCount,
     budget: Number(trip.budget),
     budget_preference: trip.budgetPreference,
-    traveler_profile: trip.travelerProfile as { interests: string[]; travel_style: string; preferences: string[] },
+    traveler_profile: trip.travelerProfile as TripData["traveler_profile"],
   };
 }
 
@@ -126,7 +126,7 @@ function formatTrip(
     budget: Number(trip.budget),
     currency: trip.currency,
     budget_preference: trip.budgetPreference,
-    traveler_profile: trip.travelerProfile as { interests: string[]; travel_style: string; preferences: string[] },
+    traveler_profile: trip.travelerProfile as TripData["traveler_profile"],
     created_at: trip.createdAt.toISOString(),
     latest_itinerary: itinerary ? formatItinerary(itinerary, tripData) : null,
   };
