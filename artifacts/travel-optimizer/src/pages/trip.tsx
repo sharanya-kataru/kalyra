@@ -384,6 +384,35 @@ export default function Trip() {
     }
   }, [savedTripId, tripId, itinerary, setLocation]);
 
+  useEffect(() => {
+    if (!saveAfterAuth || !user || !tripId || saved || saveTrip.isPending) {
+      return;
+    }
+
+    setSaveAfterAuth(false);
+
+    saveTrip.mutate(
+      { id: tripId },
+      {
+        onSuccess: () => {
+          setSaved(true);
+          toast({
+            title: 'Trip saved',
+            description: 'You can now find this trip in My Trips.',
+          });
+        },
+        onError: (error) => {
+          console.error('Failed to save trip after authentication:', error);
+          toast({
+            title: 'Could not save trip',
+            description: 'Please try again.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  }, [saveAfterAuth, user, tripId, saved, saveTrip, toast]);
+
   if (savedTripId && savedTripQuery.isLoading) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-[#f3f0e8] text-[#203b47]">
@@ -512,35 +541,6 @@ export default function Trip() {
       },
     );
   };
-
-  useEffect(() => {
-    if (!saveAfterAuth || !user || !tripId || saved || saveTrip.isPending) {
-      return;
-    }
-
-    setSaveAfterAuth(false);
-
-    saveTrip.mutate(
-      { id: tripId },
-      {
-        onSuccess: () => {
-          setSaved(true);
-          toast({
-            title: 'Trip saved',
-            description: 'You can now find this trip in My Trips.',
-          });
-        },
-        onError: (error) => {
-          console.error('Failed to save trip after authentication:', error);
-          toast({
-            title: 'Could not save trip',
-            description: 'Please try again.',
-            variant: 'destructive',
-          });
-        },
-      },
-    );
-  }, [saveAfterAuth, user, tripId, saved, saveTrip, toast]);
 
   const handleRefreshLiveData = () => {
     if (!tripId || refreshLiveData.isPending) return;

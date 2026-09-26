@@ -1,6 +1,6 @@
 import { buildFlightComparison } from "./flight-alternatives";
 import { hasPreparedWeather } from "./itinerary-weather";
-import type { ItineraryData, TripData } from "./ai";
+import { createBaseItinerary, generateItinerary, type ItineraryData, type TripData } from "./ai";
 import { enrichWalkingLegs } from "./walking";
 import {
   searchFlights,
@@ -78,13 +78,13 @@ async function resolveDynamicAirportIatas(
     const resolved = await resolveLocation(trimmed);
     if (!resolved) return [];
 
-    const airports = await discoverNearbyAirports(resolved);
+    const airports = await discoverNearbyAirports(resolved, maxAirports);
 
     const iataCodes = airports
       .map((airport) => airport.iata)
       .filter((iata): iata is string => Boolean(iata));
 
-    return iataCodes.slice(0, maxAirports);
+    return [...new Set(iataCodes)].slice(0, maxAirports);
   } catch (error) {
     logger.warn(
       {
@@ -171,7 +171,7 @@ async function buildFlightInputs(
       const origin = origins[originIndex];
       const destination = destinations[destinationIndex];
 
-      if (!origin || !destination) continue;
+      if (!origin || !destination || origin === destination) continue;
 
       inputs.push({
         origin,
@@ -269,7 +269,8 @@ export async function searchFlightCandidates(
   inputs: FlightSearchInput[],
   search: typeof searchFlights = searchFlights,
   comparisonDeadlineMs = 8_000,
-  totalComparisonDeadlineMs = 12_000
+  totalComparisonDeadlineMs = 12_000,
+  fallbackDeadlineMs = 4_000
 ): Promise<FlightSearchResult | null> {
   if (inputs.length === 0) return null;
 
@@ -356,7 +357,17 @@ export async function searchFlightCandidates(
 
   const fallbackInput = inputs[0];
 
-  const nearbyResult = await search(fallbackInput, true);
+  // Nearby-date estimates must not add another unbounded search stage after
+  // the exact-date comparison. Late results may still populate provider caches.
+  let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+  let nearbyResult: FlightSearchResult | null;
+  try {
+    nearbyResult = await Promise.race([
+      Promise.resolve().then(() => search(fallbackInput, true)).catch(() => null),
+      new Promise<null>((resolve) => { fallbackTimer = setTimeout(() => resolve(null), fallbackDeadlineMs); }),
+    ]);
+  } finally { clearTimeout(fallbackTimer); }
+  if (!nearbyResult) return bestEstimatedResult;
 
   const recheckedLive = buildFlightComparison([nearbyResult]);
   if (recheckedLive) return recheckedLive;
@@ -371,10 +382,42 @@ export async function searchFlightCandidates(
   return bestEstimatedResult;
 }
 
+async function searchItineraryFlights(itinerary: ItineraryData, trip: TripData): Promise<FlightSearchResult> {
+  const flightInputs = await buildFlightInputs(trip, itinerary);
+  const liveFlightSearch = await searchFlightCandidates(flightInputs);
+
+  return liveFlightSearch ??
+    noFlightResult(
+      flightInputs[0] ?? {
+        origin: "unknown",
+        destination: "unknown",
+        departure_date: trip.start_date,
+        return_date: trip.end_date,
+        traveler_count: trip.traveler_count,
+      },
+      flightInputs.length > 0
+        ? "Live flight information was unavailable for the discovered airports. Kalyra is using estimated flight costs for this plan."
+        : "Kalyra could not resolve airport codes for this route. Estimated flight costs are shown."
+    );
+}
+
+/** Flights depend on the route and dates, not on weather or activity discovery. */
+export async function generateEnrichedItinerary(trip: TripData): Promise<ItineraryData> {
+  const base = createBaseItinerary(trip);
+  const [itinerary, flightSearch] = await Promise.all([
+    generateItinerary(trip, base),
+    searchItineraryFlights(base, trip),
+  ]);
+  return enrichItineraryWithLiveData(itinerary, trip, { flightSearch });
+}
+
 export async function enrichItineraryWithLiveData(
   itinerary: ItineraryData,
-  trip: TripData
+  trip: TripData,
+  options: { flightSearch?: FlightSearchResult; reuseWeather?: boolean } = {}
 ): Promise<ItineraryData> {
+  // Start independent flight discovery/search before awaiting restaurants.
+  const flightPromise = options.flightSearch ? Promise.resolve(options.flightSearch) : searchItineraryFlights(itinerary, trip);
   const resolvedLocations = new Map<string, { location: string; lat: number; lon: number }>();
   const weatherPromise = Promise.all(
     [...new Set(itinerary.daily_itinerary.map((day) => day.location))]
@@ -385,8 +428,11 @@ export async function enrichItineraryWithLiveData(
         );
         const resolved = await resolveLocation(locationWithContext);
 
-        const preparedWeather = hasPreparedWeather(itinerary) ? { summaries: itinerary.daily_itinerary
-          .filter((day) => day.location === location).flatMap((day) => day.weather ? [day.weather] : []) } : null;
+        const days = itinerary.daily_itinerary.filter((day) => day.location === location);
+        const reusable = options.reuseWeather && days.every((day) => day.weather?.location === location
+          && day.weather.date === day.date && Date.now() - Date.parse(day.weather.source_metadata.retrieved_at ?? "") < 60 * 60 * 1000);
+        const preparedWeather = hasPreparedWeather(itinerary) || reusable
+          ? { summaries: days.flatMap((day) => day.weather ? [day.weather] : []) } : null;
         if (!resolved) return preparedWeather;
         resolvedLocations.set(location, { location, lat: resolved.lat, lon: resolved.lon });
 
@@ -433,23 +479,7 @@ const restaurantsByLocation = new Map(
   ])
 );
 
-const flightInputs = await buildFlightInputs(trip, itinerary);
-const liveFlightSearch = await searchFlightCandidates(flightInputs);
-
-const flightSearch =
-  liveFlightSearch ??
-  noFlightResult(
-    flightInputs[0] ?? {
-      origin: "unknown",
-      destination: "unknown",
-      departure_date: trip.start_date,
-      return_date: trip.end_date,
-      traveler_count: trip.traveler_count,
-    },
-    flightInputs.length > 0
-      ? "Live flight information was unavailable for the discovered airports. Kalyra is using estimated flight costs for this plan."
-      : "Kalyra could not resolve airport codes for this route. Estimated flight costs are shown."
-  );
+const flightSearch = await flightPromise;
 
 let enriched = attachFlightBudget(itinerary, trip, flightSearch);
 

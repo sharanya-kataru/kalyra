@@ -616,7 +616,7 @@ export async function analyzeTrip(trip: TripData): Promise<TripAnalysis> {
 // GENERATE — full itinerary
 // ---------------------------------------------------------------------------
 
-export async function generateItinerary(trip: TripData): Promise<ItineraryData> {
+export function createBaseItinerary(trip: TripData): ItineraryData {
   const { total_days: totalDays } = parseTripDuration(
     trip.start_date,
     trip.end_date
@@ -627,6 +627,10 @@ export async function generateItinerary(trip: TripData): Promise<ItineraryData> 
     trip,
     totalDays
   );
+  return itinerary;
+}
+
+export async function generateItinerary(trip: TripData, itinerary = createBaseItinerary(trip)): Promise<ItineraryData> {
   const withWeather = await prepareItineraryWeather(itinerary, trip);
   const dailyItinerary = await discoverDailyActivities(withWeather, trip, getPlacesProvider());
   return markWeatherPrepared({

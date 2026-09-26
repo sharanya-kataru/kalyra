@@ -104,6 +104,7 @@ class GeoapifyPlacesProvider implements PlacesProvider {
           source_metadata: liveSource("Geoapify", "place_search", new Date().toISOString()),
         }));
       this.placesCache.set(cacheKey, { expiresAt: Date.now() + 6 * 60 * 60 * 1000, places });
+      while (this.placesCache.size > 500) this.placesCache.delete(this.placesCache.keys().next().value!);
       logger.info({ provider: "Geoapify", requestType: "place_search", cache: "miss", resultCount: places.length }, "Place search completed");
       return places;
     } catch {
@@ -130,9 +131,12 @@ class GeoapifyPlacesProvider implements PlacesProvider {
   }
 }
 
+let placesProvider: { key: string; provider: PlacesProvider } | undefined;
 export function getPlacesProvider(): PlacesProvider | null {
   const key = process.env.GEOAPIFY_API_KEY;
-  return key ? new GeoapifyPlacesProvider(key) : null;
+  if (!key) return null;
+  if (placesProvider?.key !== key) placesProvider = { key, provider: new GeoapifyPlacesProvider(key) };
+  return placesProvider.provider;
 }
 
 export async function collectPlaceContext(
@@ -488,7 +492,17 @@ export async function resolveLocationCandidates(
   }
 }
 
+const pendingLocations = new Map<string, Promise<ResolvedLocation | null>>();
 export async function resolveLocation(query: string): Promise<ResolvedLocation | null> {
+  const key = `${process.env.GEOAPIFY_API_KEY}|${query.trim().toLowerCase()}`;
+  const existing = pendingLocations.get(key);
+  if (existing) return existing;
+  const pending = resolveLocationOnce(query);
+  pendingLocations.set(key, pending);
+  try { return await pending; } finally { pendingLocations.delete(key); }
+}
+
+async function resolveLocationOnce(query: string): Promise<ResolvedLocation | null> {
   const apiKey = process.env.GEOAPIFY_API_KEY;
   if (!apiKey) {
     logger.warn({ provider: "Geoapify", requestType: "geocode" }, "Geoapify API key is not configured");
@@ -714,6 +728,13 @@ async function searchAirportRadius(
           getPropertyText(propertyRecord.place_id) ??
           (typeof feature.id === "string" ? feature.id : undefined);
 
+        // Overlapping radius responses contain the same airports. Deduplicate
+        // before looking up missing metadata, including candidates with no IATA.
+        if (placeId) {
+          if (seen.has(placeId)) return null;
+          seen.add(placeId);
+        }
+
         const distanceMeters = Number(propertyRecord.distance ?? 0);
         const lat = Number(propertyRecord.lat);
         const lon = Number(propertyRecord.lon);
@@ -797,8 +818,7 @@ async function searchAirportRadius(
         candidate.place_id ??
         `${candidate.name}|${candidate.lat}|${candidate.lon}`;
 
-      if (seen.has(dedupeKey)) continue;
-
+      if (!candidate.place_id && seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
       existingCandidates.push(candidate);
     }
@@ -818,14 +838,14 @@ async function searchAirportRadius(
   }
 }
 
-export async function discoverNearbyAirports(location: ResolvedLocation): Promise<AirportCandidate[]> {
+export async function discoverNearbyAirports(location: ResolvedLocation, limit = Infinity): Promise<AirportCandidate[]> {
   const apiKey = process.env.GEOAPIFY_API_KEY;
   if (!apiKey) {
     logger.warn({ provider: "Geoapify", requestType: "airport_discovery" }, "Geoapify API key is not configured");
     return [];
   }
 
-  const cacheKey = `${location.query.trim().toLowerCase()}|${location.lat.toFixed(4)}|${location.lon.toFixed(4)}`;
+  const cacheKey = `${location.query.trim().toLowerCase()}|${location.lat.toFixed(4)}|${location.lon.toFixed(4)}|${limit}`;
   const cached = airportDiscoveryCache.get(cacheKey);
   if (cached) return cached;
 
@@ -842,6 +862,9 @@ export async function discoverNearbyAirports(location: ResolvedLocation): Promis
       seen,
       candidates
     );
+    // A wider radius cannot improve the nearest N airports once N are found.
+    if (new Set(candidates.filter((candidate) => isPassengerAirportCandidate(candidate.categories, candidate.iata))
+      .map((candidate) => candidate.iata)).size >= limit) break;
   }
 
   const sorted = [...candidates]

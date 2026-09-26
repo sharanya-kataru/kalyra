@@ -110,6 +110,9 @@ type IgnavItinerary = {
 };
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
+const pendingFlights = new Map<string, Promise<FlightSearchResult>>();
+const negativeFlights = new Map<string, { expiresAt: number; result: FlightSearchResult }>();
+const unsupportedAirports = new Map<string, number>();
 const flightCache = new Map<string, { expiresAt: number; result: FlightSearchResult }>();
 
 function finiteNonNegative(value: unknown): number | null {
@@ -219,6 +222,7 @@ class IgnavFlightProvider implements FlightProvider {
       url.searchParams.set("limit", String(limit));
 
       const response = await fetch(url, {
+        signal: AbortSignal.timeout(6_000),
         headers: {
           "X-Api-Key": this.apiKey,
         },
@@ -277,11 +281,37 @@ class IgnavFlightProvider implements FlightProvider {
     return results.flat();
   }
 
-  async search_flights(
+  async search_flights(input: FlightSearchInput, allowNearbyFallback = true): Promise<FlightSearchResult> {
+    input = { ...input, origin: input.origin.trim().toUpperCase(), destination: input.destination.trim().toUpperCase(),
+      traveler_count: Math.min(Math.max(Math.round(input.traveler_count), 1), 9),
+      cabin_class: input.cabin_class ?? "economy", market: input.market ?? "US", currency: input.currency ?? "USD" };
+    // A provider-declared unsupported airport is independent of travel dates.
+    // Do not infer this from empty offers, generic 400s, auth failures or timeouts.
+    if ([input.origin, input.destination].some((iata) => (unsupportedAirports.get(`${this.apiKey}|${iata}`) ?? 0) > Date.now())) {
+      return emptyResult(input, "This airport is not supported by the flight provider. Estimated costs are shown.");
+    }
+    const key = JSON.stringify([this.apiKey, input.origin, input.destination, input.departure_date, input.return_date,
+      input.traveler_count, input.cabin_class, input.market, input.currency, allowNearbyFallback]);
+    const cached = negativeFlights.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.result;
+    const existing = pendingFlights.get(key);
+    if (existing) return existing;
+    const pending = this.performSearch(input, allowNearbyFallback).then((result) => {
+      if (result.status !== "live") {
+        negativeFlights.set(key, { expiresAt: Date.now() + 60_000, result });
+        while (negativeFlights.size > 500) negativeFlights.delete(negativeFlights.keys().next().value!);
+      }
+      return result;
+    });
+    pendingFlights.set(key, pending);
+    try { return await pending; } finally { pendingFlights.delete(key); }
+  }
+
+  private async performSearch(
     input: FlightSearchInput,
     allowNearbyFallback = true,
   ): Promise<FlightSearchResult> {
-    const cacheKey = JSON.stringify(input);
+    const cacheKey = JSON.stringify([this.apiKey, input.origin, input.destination, input.departure_date, input.return_date, input.traveler_count, input.cabin_class, input.market, input.currency]);
     const cached = flightCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       logger.info({ provider: "Ignav", requestType: "round_trip", cache: "hit", resultCount: cached.result.offers.length }, "Flight search cache hit");
@@ -309,6 +339,14 @@ class IgnavFlightProvider implements FlightProvider {
       });
 
       if (!response.ok) {
+        if (response.status === 400) {
+          const body = await response.json().catch(() => null) as { error?: { code?: string; field?: string } } | null;
+          const field = body?.error?.field;
+          if (body?.error?.code === "invalid_airport_code" && (field === "origin" || field === "destination")) {
+            unsupportedAirports.set(`${this.apiKey}|${input[field]}`, Date.now() + 6 * 60 * 60 * 1000);
+            while (unsupportedAirports.size > 500) unsupportedAirports.delete(unsupportedAirports.keys().next().value!);
+          }
+        }
         logger.warn({ provider: "Ignav", requestType: "round_trip", statusCode: response.status, latencyMs: Date.now() - startedAt }, "Flight provider unavailable");
         return emptyResult(input, "Live flight information is temporarily unavailable. Kalyra is using estimated flight costs for this plan.");
       }

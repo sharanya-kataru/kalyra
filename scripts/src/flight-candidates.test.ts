@@ -158,3 +158,12 @@ test("fallback recheck preserves live results and provider metadata", async () =
   assert.deepEqual(selected?.source_metadata, live.source_metadata);
   assert.deepEqual(calls, [false, true]);
 });
+
+test("nearby fallback has its own deadline and tolerates provider failure", { timeout: 1000 }, async () => {
+  assert.equal(await searchFlightCandidates(inputs.slice(0, 1), async (_, nearby) =>
+    nearby ? new Promise<FlightSearchResult>(() => {}) : empty(), 10, 20, 25), null);
+  assert.equal(await searchFlightCandidates(inputs.slice(0, 1), async (_, nearby) => {
+    if (nearby) throw new Error("fallback failed");
+    return empty();
+  }, 10, 20, 25), null);
+});

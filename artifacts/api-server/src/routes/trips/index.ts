@@ -12,7 +12,6 @@ import {
 } from "@workspace/api-zod";
 import {
   analyzeTrip,
-  generateItinerary,
   modifyItinerary,
   shortenItinerary,
   normalizeItinerary,
@@ -23,7 +22,7 @@ import {
 import { computeTripHealthScore } from "../../lib/scoring";
 import { DESTINATIONS } from "../../lib/destinations";
 import { parseDateRangeFromText, parseTripDuration } from "../../lib/trip-utils";
-import { enrichItineraryWithLiveData } from "../../lib/live-data";
+import { enrichItineraryWithLiveData, generateEnrichedItinerary } from "../../lib/live-data";
 
 const router: IRouter = Router();
 
@@ -337,10 +336,7 @@ router.post("/trips/:id/generate", async (req, res): Promise<void> => {
   req.log.info({ tripId: trip.id }, "Generating itinerary");
 
   const tripData = buildTripData(trip);
-  const itineraryData = await enrichItineraryWithLiveData(
-    await generateItinerary(tripData),
-    tripData
-  );
+  const itineraryData = await generateEnrichedItinerary(tripData);
 
   // Get current latest version number
   const existing = await loadLatestItinerary(trip.id);
@@ -488,10 +484,9 @@ router.post("/trips/:id/modify", async (req, res): Promise<void> => {
       start_date: requestedDuration.start_date,
       end_date: requestedDuration.end_date,
     };
-    const regenerated = await enrichItineraryWithLiveData(
-      shortened?.itinerary ?? await generateItinerary(updatedTripData),
-      updatedTripData
-    );
+    const regenerated = shortened
+      ? await enrichItineraryWithLiveData(shortened.itinerary, updatedTripData, { reuseWeather: true })
+      : await generateEnrichedItinerary(updatedTripData);
     const scoreAfter = computeTripHealthScore(regenerated, updatedTripData);
     const scoreDelta = scoreAfter.overall - scoreBefore.overall;
     const scoreSign = scoreDelta >= 0 ? "+" : "";
