@@ -1,7 +1,7 @@
 import { planningStyle } from "@/lib/planning-style";
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { ArrowLeft, ArrowRight, ChevronDown, Clock3, RouteIcon, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronDown, Clock3, RouteIcon, Sparkles, Loader2 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { useTripContext } from '@/context/TripContext';
 import { useAnalyzeTrip, useGenerateItinerary } from '@workspace/api-client-react';
@@ -79,15 +79,16 @@ export default function Analysis() {
           <Logo />
           <button
             onClick={() => setLocation('/plan')}
+            disabled={generateItinerary.isPending}
             className="flex items-center gap-2 text-xs font-semibold text-[#65706d]"
             data-testid="link-edit-brief"
           >
             <ArrowLeft size={15} /> Edit brief
           </button>
         </div>
-        <div className="border-b border-[#d7d0c2] pb-16 pt-12 sm:pt-24">
-          <p className="text-xs font-semibold uppercase tracking-wider">Daily planning style · {style.label}</p>
-          <p className="mt-2 text-sm text-[#65706d]">{style.description} This applies to daily activities, not destination ranking.</p>
+        <div className="border-b border-[#d7d0c2] pb-10 pt-8 sm:pb-8 sm:pt-8">
+          <p className="text-[11px] font-semibold uppercase tracking-wider">Daily planning style · {style.label}</p>
+          <p className="mt-2 max-w-2xl text-xs text-[#65706d]">{style.description} This applies to daily activities, not destination ranking.</p>
           {isLoading ? (
             <div className="max-w-3xl">
               <div className="h-4 w-48 animate-pulse rounded bg-[#d7d0c2]" />
@@ -101,29 +102,29 @@ export default function Analysis() {
                 <p className="rise font-mono-custom text-[11px] uppercase tracking-[.18em] text-[#bb7a52]">
                   Your direction is taking shape
                 </p>
-                <h1 className="rise rise-delay-1 mt-5 font-display text-5xl leading-[.94] tracking-[-.06em] sm:text-8xl">
-                  {analysis?.trip_strategy || 'Your personalized route'}
+                <h1 className="rise rise-delay-1 mt-4 font-display text-4xl leading-[1.05] tracking-[-.04em] sm:text-5xl">
+                  {analysis?.destinations?.[0] ? `Start with ${analysis.destinations[0].name}.` : 'Your personalized route'}
                 </h1>
-                <p className="rise rise-delay-2 mt-8 max-w-xl text-[16px] leading-7 text-[#65706d]">
-                  {analysis?.reasoning || 'Crafting a route that matches your travel style...'}
+                <p className="rise rise-delay-2 mt-4 max-w-2xl text-sm leading-6 text-[#65706d]">
+                  {analysis?.trip_strategy || 'Crafting a route that matches your travel style...'}
                 </p>
               </div>
-              <div className="mt-14 grid max-w-4xl gap-3 sm:grid-cols-3">
+              <div className="mt-6 grid max-w-4xl gap-3 sm:grid-cols-3">
                 <div className="rounded-xl bg-[#203b47] p-5 text-[#f5f0e6]">
                   <Sparkles className="text-[#e8bc5a]" size={18} />
-                  <p className="mt-8 text-xs text-[#aebeb5]">The strategy</p>
+                  <p className="mt-3 text-xs text-[#aebeb5]">The strategy</p>
                   <p className="mt-1 font-display text-2xl">
-                    {analysis?.trip_strategy?.split('.')[0] || 'Considered travel'}
+                    Interest, budget & pace
                   </p>
                 </div>
                 <div className="rounded-xl bg-[#d4b78e] p-5">
                   <Clock3 size={18} />
-                  <p className="mt-8 text-xs text-[#5d6863]">The destinations</p>
+                  <p className="mt-3 text-xs text-[#5d6863]">The destinations</p>
                   <p className="mt-1 font-display text-2xl">{analysis?.destinations?.length || 0} places</p>
                 </div>
                 <div className="rounded-xl bg-[#c3d1c6] p-5">
                   <RouteIcon size={18} />
-                  <p className="mt-8 text-xs text-[#5d6863]">Match score</p>
+                  <p className="mt-3 text-xs text-[#5d6863]">Match score</p>
                   <p className="mt-1 font-mono-custom text-2xl">
                     {analysis?.destinations?.[0]?.score ?? '—'}%
                   </p>
@@ -133,7 +134,7 @@ export default function Analysis() {
           )}
         </div>
         {!isLoading && analysis?.destinations && (
-          <section className="py-16">
+          <section className="py-8 sm:py-10">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
                 <p className="font-mono-custom text-[11px] uppercase tracking-[.18em] text-[#bb7a52]">
@@ -147,7 +148,11 @@ export default function Analysis() {
                 Not ranked by popularity. Ranked by the kind of days you said you want.
               </p>
             </div>
-            <div className="mt-9 space-y-3">
+            <details className="mt-4 text-sm leading-6 text-[#65706d]">
+              <summary className="cursor-pointer font-semibold">How Kalyra weighed your brief</summary>
+              <p className="mt-2 max-w-3xl">{analysis.reasoning}</p>
+            </details>
+            <div className="mt-6 space-y-3">
               {analysis.destinations.map((d, i) => {
                 const colors = ['bg-[#a9c6b4]', 'bg-[#c2b39a]', 'bg-[#d5a58f]'];
                 const initials = d.name
@@ -346,9 +351,18 @@ export default function Analysis() {
               className="flex items-center gap-3 rounded-full bg-[#203b47] px-6 py-3.5 text-sm font-semibold text-[#f5f0e6] transition hover:bg-[#315565] disabled:opacity-70"
               data-testid="button-generate-trip"
             >
-              {generateItinerary.isPending ? 'Drawing your route…' : 'Generate my trip'}{' '}
+              {generateItinerary.isPending && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
+              {generateItinerary.isPending ? 'Building your itinerary…' : 'Generate my trip'}{' '}
               {!generateItinerary.isPending && <ArrowRight size={16} />}
             </button>
+          </div>
+        )}
+        {generateItinerary.isPending && (
+          <div role="status" aria-live="polite" className="fixed bottom-5 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 items-center gap-4 rounded-2xl border border-[#d7d0c2] bg-[#203b47] p-5 text-[#f5f0e6] shadow-xl">
+            <Loader2 className="shrink-0 animate-spin text-[#e8bc5a]" size={22} aria-hidden="true" />
+            <div><p className="font-display text-xl">Your trip is taking shape</p>
+              <p className="mt-1 text-sm text-[#c3d1c6]">Finding places, planning your days, and checking live travel options. This can take a little time.</p>
+            </div>
           </div>
         )}
       </div>

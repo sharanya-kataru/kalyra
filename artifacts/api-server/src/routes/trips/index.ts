@@ -14,6 +14,7 @@ import {
   analyzeTrip,
   generateItinerary,
   modifyItinerary,
+  shortenItinerary,
   normalizeItinerary,
   type TripData,
   type ItineraryData,
@@ -474,7 +475,13 @@ router.post("/trips/:id/modify", async (req, res): Promise<void> => {
   // Compute before-score to include in response
   const scoreBefore = computeTripHealthScore(currentData, tripData);
 
-  const requestedDuration = parseDateRangeFromText(bodyParsed.data.user_request);
+  const reduceDays = /^reduce travel days[.!]?$/i.test(bodyParsed.data.user_request.trim());
+  const shortened = reduceDays ? shortenItinerary(tripData, currentData) : null;
+  if (reduceDays && !shortened) {
+    res.status(400).json({ error: "This trip is already at the minimum length of 2 days (1 night)." });
+    return;
+  }
+  const requestedDuration = shortened?.trip ?? parseDateRangeFromText(bodyParsed.data.user_request);
   if (requestedDuration) {
     const updatedTripData: TripData = {
       ...tripData,
@@ -482,57 +489,61 @@ router.post("/trips/:id/modify", async (req, res): Promise<void> => {
       end_date: requestedDuration.end_date,
     };
     const regenerated = await enrichItineraryWithLiveData(
-      await generateItinerary(updatedTripData),
+      shortened?.itinerary ?? await generateItinerary(updatedTripData),
       updatedTripData
     );
     const scoreAfter = computeTripHealthScore(regenerated, updatedTripData);
     const scoreDelta = scoreAfter.overall - scoreBefore.overall;
     const scoreSign = scoreDelta >= 0 ? "+" : "";
-    const scoreReasoning = `Trip dates were updated and live travel data was refreshed. Actual Trip Health Score: ${scoreBefore.overall} → ${scoreAfter.overall} (${scoreSign}${scoreDelta}).`;
+    const scoreReasoning = `${shortened ? "Shortened the trip by one day, preserving earlier activities and protecting the new departure day." : "Trip dates were updated."} Live travel data was refreshed. Actual Trip Health Score: ${scoreBefore.overall} → ${scoreAfter.overall} (${scoreSign}${scoreDelta}).`;
 
-    await db
-      .update(tripsTable)
-      .set({
-        startDate: updatedTripData.start_date,
-        endDate: updatedTripData.end_date,
-      })
-      .where(eq(tripsTable.id, trip.id));
+    const { savedItinerary, savedMod } = await db.transaction(async (tx) => {
+      await tx
+        .update(tripsTable)
+        .set({
+          startDate: updatedTripData.start_date,
+          endDate: updatedTripData.end_date,
+        })
+        .where(eq(tripsTable.id, trip.id));
 
-    const [savedItinerary] = await db
-      .insert(itinerariesTable)
-      .values({
-        tripId: trip.id,
-        tripStrategy: regenerated.trip_strategy,
-        currency: regenerated.currency,
-        totalDays: regenerated.total_days,
-        totalNights: regenerated.total_nights,
-        route: regenerated.route,
-        destinations: regenerated.destinations,
-        dailyItinerary: regenerated.daily_itinerary,
-        dailySchedule: regenerated.daily_schedule,
-        budgetBreakdown: regenerated.budget_breakdown,
-        budgetSummary: regenerated.budget_summary,
-        liveData: regenerated.live_data ?? null,
-        reasoning: scoreReasoning,
-        tradeoffs: regenerated.tradeoffs,
-        version: currentItinerary.version + 1,
-      })
-      .returning();
+      const [savedItinerary] = await tx
+        .insert(itinerariesTable)
+        .values({
+          tripId: trip.id,
+          tripStrategy: regenerated.trip_strategy,
+          currency: regenerated.currency,
+          totalDays: regenerated.total_days,
+          totalNights: regenerated.total_nights,
+          route: regenerated.route,
+          destinations: regenerated.destinations,
+          dailyItinerary: regenerated.daily_itinerary,
+          dailySchedule: regenerated.daily_schedule,
+          budgetBreakdown: regenerated.budget_breakdown,
+          budgetSummary: regenerated.budget_summary,
+          liveData: regenerated.live_data ?? null,
+          reasoning: scoreReasoning,
+          tradeoffs: regenerated.tradeoffs,
+          version: currentItinerary.version + 1,
+        })
+        .returning();
 
-    const [savedMod] = await db
-      .insert(tripModificationsTable)
-      .values({
-        tripId: trip.id,
-        userRequest: bodyParsed.data.user_request,
-        previousItineraryId: currentItinerary.id,
-        updatedItineraryId: savedItinerary.id,
-        changesMade: [
-          `Trip dates updated to ${updatedTripData.start_date} through ${updatedTripData.end_date}.`,
-          "Live flight and weather data refreshed for the new dates.",
-        ],
-        reasoning: scoreReasoning,
-      })
-      .returning();
+      const [savedMod] = await tx
+        .insert(tripModificationsTable)
+        .values({
+          tripId: trip.id,
+          userRequest: bodyParsed.data.user_request,
+          previousItineraryId: currentItinerary.id,
+          updatedItineraryId: savedItinerary.id,
+          changesMade: [
+            `Trip dates updated to ${updatedTripData.start_date} through ${updatedTripData.end_date}.`,
+            "Live flight and weather data refreshed for the new dates.",
+          ],
+          reasoning: scoreReasoning,
+        })
+        .returning();
+
+      return { savedItinerary, savedMod };
+    });
 
     res.json({
       id: savedMod.id,

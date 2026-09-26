@@ -11,6 +11,7 @@ import {
 import { buildScoringContext, computeTripHealthScore, type TripHealthScore } from "./scoring";
 import {
   selectRouteCandidates,
+  scoreDestinationForTrip,
   explainRouteSelection,
   type DestinationDecisionScore,
 } from "./decision-engine";
@@ -453,7 +454,18 @@ function reassignDailyItineraryLocations(
   return Array.from({ length: totalDays }, (_, index) => {
     const existing = days[index];
     return existing
-      ? { ...existing, day: index + 1, location: routeLocationForDay(route, index) || existing.location }
+      ? (() => {
+          const location = routeLocationForDay(route, index) || existing.location;
+          if (location === existing.location) return { ...existing, day: index + 1 };
+          return {
+            ...existing, day: index + 1, location,
+            morning: { activity: index === totalDays - 1 ? `Pack and prepare to depart from ${location}` : `Explore ${location}`, description: "Keep the morning flexible at your remaining base.", estimated_cost_usd: 0 },
+            afternoon: { activity: "Free time", description: "Rest or explore locally without another transfer.", estimated_cost_usd: 0 },
+            evening: { activity: `Relaxed evening in ${location}`, description: "Leave time for dinner and rest.", estimated_cost_usd: 0 },
+            food_recommendations: [], walking_legs: [], weather: undefined,
+            transportation: { mode: index === totalDays - 1 ? `Depart from ${location}` : "Walk and local transit", details: index === totalDays - 1 ? "Leave time to collect your belongings and reach your departure point." : "Stay at this base; no inter-base transfer is planned.", duration: "" },
+          };
+        })()
       : {
           day: index + 1,
           date: "",
@@ -628,6 +640,42 @@ export async function generateItinerary(trip: TripData): Promise<ItineraryData> 
 // ---------------------------------------------------------------------------
 // MODIFY — iterative editing with score-aware reasoning
 // ---------------------------------------------------------------------------
+
+/** Shorten by one calendar day while preserving surviving activity days. */
+export function shortenItinerary(trip: TripData, current: ItineraryData): { trip: TripData; itinerary: ItineraryData } | null {
+  const duration = parseTripDuration(trip.start_date, trip.end_date);
+  if (duration.total_days <= 2) return null;
+  const updatedTrip = { ...trip, end_date: addDays(trip.end_date, -1) };
+  const route = current.route.map((stop) => ({ ...stop }));
+  route[route.length - 1].nights--;
+  if (route.at(-1)!.nights === 0) route.pop();
+  const last = route.at(-1)!;
+  last.transport_to_next = null;
+  last.duration_hours = null;
+  const days = current.daily_itinerary.slice(0, -1).map((day) => ({ ...day }));
+  const final = days.at(-1)!;
+  // Preserve earlier days. The new final day must protect departure, not retain
+  // timed attractions or walking legs from what was formerly a full activity day.
+  days[days.length - 1] = {
+    ...final, location: last.location, date: updatedTrip.end_date,
+    morning: { activity: `Pack and prepare to depart from ${last.location}`, description: "Leave time to collect your belongings and prepare for departure.", estimated_cost_usd: 0 },
+    afternoon: { activity: "Departure preparations and flexible time", description: "Keep time available for your onward journey.", estimated_cost_usd: 0 },
+    evening: { activity: "Departure", description: "Follow your updated travel arrangements.", estimated_cost_usd: 0 },
+    transportation: { mode: `Depart from ${last.location}`, details: "Allow time to reach your departure point.", duration: "" },
+    food_recommendations: [], walking_legs: [],
+  };
+  const scores = route.map((stop, index) => {
+    const score = scoreDestinationForTrip(stop.location, updatedTrip);
+    stop.experience_score = score.overall_score;
+    stop.why_selected = explainRouteSelection(score, updatedTrip);
+    return { ...decisionToDestinationScore(score, updatedTrip, index), recommended_nights: stop.nights };
+  });
+  const itinerary = normalizeItinerary({ ...current, route, destinations: scores,
+    daily_itinerary: days, daily_schedule: legacyScheduleFromRich(days), live_data: undefined,
+    trip_strategy: `A ${duration.total_days - 1}-day journey through ${trip.destination} with ${route.length} base${route.length === 1 ? "" : "s"}: ${route.map((stop) => stop.location).join(" → ")}. ${resolveOptimizationProfile(trip.traveler_profile.optimization_mode).description}`,
+  }, updatedTrip);
+  return { trip: updatedTrip, itinerary };
+}
 
 export async function modifyItinerary(
   trip: TripData,
@@ -1054,7 +1102,7 @@ function buildFallbackModification(
   const requestedDay = req.match(/\bday\s*(\d+)\b/)?.[1];
   const wantsCheaper = /cheap|budget|save|less money|reduce cost/i.test(req);
   const wantsNature = /nature|outdoor|mountain|hiking|scenery/i.test(req);
-  const wantsSlower = !requestedDay && /slow|relax|fewer destinations|less rushing|less rushed|rushed|fewer stops|less busy/i.test(req);
+  const wantsSlower = !requestedDay && /slow|relax|fewer destinations|less rushing|less rushed|rushed|fewer stops|less busy|remove a destination/i.test(req);
   const wantsFood = /food|eat|restaurant|culinary|cuisine/i.test(req);
   const addDestination = /add\s+(lake atitlan|atitlán|zermatt|tikal|antigua|nature)/i.exec(request)?.[1];
 
@@ -1207,7 +1255,6 @@ function buildFallbackModification(
     const accomEntry = current.budget_breakdown.find((b) => b.category === "Accommodation");
     const saving = accomEntry ? Math.round(accomEntry.estimated_amount * 0.15) : Math.round(trip.budget * 0.05);
     changes.push({ description: `Reduced accommodation budget by 15% (~$${saving} savings)`, type: "budget" });
-    changes.push({ description: "Replaced one paid activity with free alternatives", type: "activity" });
     updatedItinerary.budget_breakdown = current.budget_breakdown.map((b) =>
       b.category === "Accommodation"
         ? { ...b, estimated_amount: Math.round(b.estimated_amount * 0.85), description: b.description + " (budget-optimized)" }
@@ -1244,8 +1291,8 @@ function buildFallbackModification(
     const natureAttrs = current.route.map((r) => { const a = lookupDestination(r.location); return a ? `${r.location}: Nature ${a.nature}/100` : null; }).filter(Boolean);
     reasoning = `Shifting mornings to outdoor exploration better matches your nature interests${scoreRef}. Experience Fit improves from ${expFit}/100. ${natureAttrs.length > 0 ? `Catalog data: ${natureAttrs.slice(0, 2).join(", ")}.` : ""} Golden hour light conditions make mornings the optimal window for photography and natural landscapes.`;
   } else if (wantsSlower) {
-    changes.push({ description: "Removed one destination to extend time at remaining stops", type: "destination" });
     if (updatedItinerary.route.length > 1) {
+      changes.push({ description: "Removed one destination to extend time at remaining stops", type: "destination" });
       const removed = updatedItinerary.route.pop()!;
       const removedAttrs = lookupDestination(removed.location);
       const last = updatedItinerary.route[updatedItinerary.route.length - 1];
@@ -1271,7 +1318,14 @@ function buildFallbackModification(
       const idealNote = removedAttrs ? ` Catalog ideal stay for ${removed.location}: ${removedAttrs.ideal_stay_days.min}–${removedAttrs.ideal_stay_days.max} nights — shorter stays rarely reach the experience depth available there.` : "";
       reasoning = `Removing ${removed.location} and redistributing ${removed.nights} night${removed.nights !== 1 ? "s" : ""} targets Pacing from ${pacingScore}/100.${idealNote} Fewer transitions means less time on transit and more time in each place.`;
     } else {
-      reasoning = `The itinerary is already focused on one destination. Schedule has been reorganized to include more unstructured time between activities.`;
+      updatedItinerary.daily_itinerary = updatedItinerary.daily_itinerary.map((day, index, days) =>
+        index === 0 || index === days.length - 1 ? day : {
+          ...day,
+          afternoon: { activity: "Free time", description: "Leave room to rest or explore spontaneously without another scheduled stop.", estimated_cost_usd: 0 },
+        });
+      updatedItinerary.daily_schedule = legacyScheduleFromRich(updatedItinerary.daily_itinerary);
+      changes.push({ description: "Replaced ordinary-day afternoon activities with free time", type: "schedule" });
+      reasoning = "The route already has one base, so there are no inter-base transfers to remove. Ordinary-day afternoons are now free time; trip dates remain unchanged.";
     }
   } else if (wantsFood) {
     changes.push({ description: "Enhanced food focus — culinary activities and market visits added", type: "activity" });
@@ -1307,10 +1361,15 @@ function buildFallbackModification(
     const foodAttrs = current.route.map((r) => { const a = lookupDestination(r.location); return a ? `${r.location}: Food ${a.food}/100` : null; }).filter(Boolean);
     reasoning = `Shifting focus to food experiences better matches your culinary interests. Experience Fit improves from ${expFit}/100. ${foodAttrs.length > 0 ? `${foodAttrs.slice(0, 2).join(", ")}. ` : ""}Markets and neighborhood restaurants outperform tourist-facing dining in both quality and authenticity.`;
   } else {
-    changes.push({ description: `Applied requested adjustment: ${request}`, type: "schedule" });
-    reasoning = `Itinerary adjusted based on your request${scoreRef}. Core structure remains optimized for your ${trip.traveler_profile.interests.slice(0, 2).join(" and ")} priorities (current Experience Fit: ${currentScore?.experience_fit.score ?? "–"}/100).`;
+    reasoning = "No itinerary changes were made: this request is not supported by the current refinement rules. Try reducing transfers, slowing a day, adding nature or food activities, or adjusting the budget.";
   }
 
+  if (wantsSlower || JSON.stringify(updatedItinerary.route) !== JSON.stringify(current.route)) {
+    const retained = new Set(updatedItinerary.route.map((stop) => stop.location));
+    updatedItinerary.destinations = current.destinations.filter((destination) => retained.has(destination.name));
+    updatedItinerary.trip_strategy = `A ${current.total_days}-day journey through ${trip.destination} with ${updatedItinerary.route.length} base${updatedItinerary.route.length === 1 ? "" : "s"}: ${updatedItinerary.route.map((stop) => stop.location).join(" → ")}. ${resolveOptimizationProfile(trip.traveler_profile.optimization_mode).description}`;
+  }
+  updatedItinerary.daily_schedule = legacyScheduleFromRich(updatedItinerary.daily_itinerary);
   const normalizedItinerary = normalizeItinerary(
     updatedItinerary,
     trip,

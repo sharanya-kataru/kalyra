@@ -178,14 +178,37 @@ test("trip ownership, anonymous access, saving, and listing", async (t) => {
     try {
       const generated = await fetch(`${baseUrl}/api/trips/${anonymousTripId}/generate`, { method: "POST", headers: { cookie: userACookie } });
       assert.equal(generated.status, 200);
-      for (const user_request of ["Keep this plan", "Change dates to 2026-10-02 to 2026-10-09"]) {
+      for (const user_request of ["Slow down day 3", "Change dates to 2026-10-02 to 2026-10-09"]) {
         const modified = await fetch(`${baseUrl}/api/trips/${anonymousTripId}/modify`, { method: "POST", headers: { cookie: userACookie, "content-type": "application/json" }, body: JSON.stringify({ user_request }) });
         assert.equal(modified.status, 200);
+        const modification = await modified.json() as { itinerary: { id: string; version: number; daily_itinerary: Array<{ day: number; morning: { activity: string } }> } };
+        if (user_request === "Slow down day 3") {
+          assert.equal(modification.itinerary.version, 2);
+          assert.match(modification.itinerary.daily_itinerary.find((day) => day.day === 3)!.morning.activity, /Slow morning/);
+          const [persisted] = await db.select().from(itinerariesTable).where(eq(itinerariesTable.id, modification.itinerary.id));
+          assert.deepEqual(persisted.dailyItinerary, modification.itinerary.daily_itinerary);
+        }
         const response = await fetch(`${baseUrl}/api/trips/${anonymousTripId}`, { headers: { cookie: userACookie } });
         const body = await response.json() as { traveler_profile: { optimization_mode?: string }; latest_itinerary: { trip_strategy: string } };
         assert.equal(body.traveler_profile.optimization_mode, "stay_local");
         assert.match(body.latest_itinerary.trip_strategy, /stronger weight to geographic grouping/);
       }
+      for (let days = 7; days >= 2; days--) {
+        const shortened = await fetch(`${baseUrl}/api/trips/${anonymousTripId}/modify`, { method: "POST", headers: { cookie: userACookie, "content-type": "application/json" }, body: JSON.stringify({ user_request: "Reduce travel days" }) });
+        assert.equal(shortened.status, 200);
+        const result = await shortened.json() as { itinerary: { id: string; total_days: number; total_nights: number; daily_itinerary: Array<{ date: string; transportation: { mode: string } }> } };
+        assert.equal(result.itinerary.total_days, days);
+        assert.equal(result.itinerary.total_nights, days - 1);
+        assert.equal(result.itinerary.daily_itinerary.length, days);
+        assert.match(result.itinerary.daily_itinerary.at(-1)!.transportation.mode, /^Depart from/);
+        const reopened = await fetch(`${baseUrl}/api/trips/${anonymousTripId}`, { headers: { cookie: userACookie } });
+        const saved = await reopened.json() as { end_date: string; latest_itinerary: { id: string; total_days: number } };
+        assert.equal(saved.end_date, result.itinerary.daily_itinerary.at(-1)!.date);
+        assert.equal(saved.latest_itinerary.id, result.itinerary.id);
+        assert.equal(saved.latest_itinerary.total_days, days);
+      }
+      const minimum = await fetch(`${baseUrl}/api/trips/${anonymousTripId}/modify`, { method: "POST", headers: { cookie: userACookie, "content-type": "application/json" }, body: JSON.stringify({ user_request: "Reduce travel days" }) });
+      assert.equal(minimum.status, 400);
     } finally {
       if (geo !== undefined) process.env.GEOAPIFY_API_KEY = geo;
       if (ignav !== undefined) process.env.IGNAV_API_KEY = ignav;

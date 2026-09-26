@@ -1,3 +1,4 @@
+import { firstChangedDay } from "@/lib/refinement-view";
 import { planningStyle } from "@/lib/planning-style";
 import { flightMetrics, flightDeltas, visibleFlightAlternatives } from "@/lib/flight-display";
 import { weatherPresentation } from "@/lib/weather-label";
@@ -436,7 +437,17 @@ export default function Trip() {
       { id: tripId, data: { user_request: requestText } },
       {
         onSuccess: (data) => {
+          const changedDay = firstChangedDay(itinerary.daily_itinerary, data.itinerary.daily_itinerary);
           setItinerary(data.itinerary);
+          if (planData && data.itinerary.daily_itinerary.length) {
+            setPlanData({ ...planData, startDate: data.itinerary.daily_itinerary[0].date,
+              endDate: data.itinerary.daily_itinerary.at(-1)!.date });
+          }
+          if (changedDay >= 0) {
+            setFilter('All days');
+            setOpenDay(changedDay);
+            setTab('days');
+          }
           setModificationHistory((prev) => [
             {
               request: requestText,
@@ -453,7 +464,7 @@ export default function Trip() {
               ? Math.round(data.score_after.overall - data.score_before.overall)
               : null;
           toast({
-            title: scoreDelta !== null
+            title: data.changes_made.length === 0 ? 'No itinerary changes' : scoreDelta !== null
               ? `Trip updated · Score ${scoreDelta >= 0 ? '+' : ''}${scoreDelta}`
               : 'Trip updated',
             description: data.reasoning.slice(0, 120) + (data.reasoning.length > 120 ? '…' : ''),
@@ -698,8 +709,8 @@ export default function Trip() {
           ))}
         </div>
 
-        {/* Route visualization — shared between overview and days tabs */}
-        {(tab === 'overview' || tab === 'days') && (
+        {/* Route visualization belongs to Overview. */}
+        {tab === 'overview' && (
           <section className="py-12 sm:py-16">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
