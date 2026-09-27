@@ -1,6 +1,6 @@
 import { firstChangedDay } from "@/lib/refinement-view";
 import { planningStyle } from "@/lib/planning-style";
-import { flightMetrics, flightDeltas, visibleFlightAlternatives } from "@/lib/flight-display";
+import { flightMetrics, flightDeltas, visibleFlightAlternatives, flightBudgetAllocation } from "@/lib/flight-display";
 import { weatherPresentation } from "@/lib/weather-label";
 import { Fragment, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -833,6 +833,7 @@ export default function Trip() {
             {itinerary.live_data && (
               <LiveTravelData
                 data={itinerary.live_data}
+                allocation={flightBudgetAllocation(itinerary.live_data.flight_search, itinerary.budget_breakdown)}
                 onRefresh={handleRefreshLiveData}
                 refreshing={refreshLiveData.isPending}
                 travelerCount={travelerCount}
@@ -1217,11 +1218,13 @@ export default function Trip() {
 
 function LiveTravelData({
   data,
+  allocation,
   onRefresh,
   refreshing,
   travelerCount,
 }: {
   data: any;
+  allocation: number | null;
   onRefresh: () => void;
   refreshing: boolean;
   travelerCount: number;
@@ -1262,9 +1265,9 @@ function LiveTravelData({
               <p className="text-sm font-semibold">Flight recommendation</p>
             </div>
             <SourcePill
-              label={flight?.source_metadata?.label ?? 'FALLBACK'}
-              provider={flight?.source_metadata?.provider}
-              freshness={flight?.source_metadata?.freshness}
+              label={allocation !== null ? 'FALLBACK' : flight?.source_metadata?.label ?? 'FALLBACK'}
+              provider={allocation !== null ? 'Kalyra' : flight?.source_metadata?.provider}
+              freshness={allocation !== null ? 'budget allocation' : flight?.source_metadata?.freshness}
             />
           </div>
           {selected && !isNearbyDateEstimate ? (
@@ -1336,10 +1339,17 @@ function LiveTravelData({
                 </>
               ) : (
                 <>
-                  <p className="font-display text-3xl">Flight pricing unavailable</p>
+                  <p className="font-display text-3xl">Live flight pricing unavailable</p>
+                  {allocation !== null && (
+                    <div className="mt-4" data-testid="flight-budget-allocation">
+                      <p className="text-xs font-semibold">Flight budget allocation</p>
+                      <p className="mt-1 font-display text-3xl">{formatUsd(allocation)}</p>
+                    </div>
+                  )}
                   <p className="mt-4 text-xs leading-5 text-[#65706d]">
-                    {flight?.message ??
-                      'Kalyra could not find usable fares for your exact or nearby travel dates.'}
+                    {allocation !== null
+                      ? 'Kalyra is reserving this part of your trip’s planning budget for flights. This is a budget allocation, not a live airfare quote.'
+                      : 'Kalyra could not find usable fares for your exact or nearby travel dates.'}
                   </p>
                 </>
               )}
