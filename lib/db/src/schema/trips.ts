@@ -1,4 +1,4 @@
-import { pgTable, text, integer, numeric, jsonb, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, numeric, jsonb, timestamp, uuid, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -6,6 +6,7 @@ import { usersTable } from "./users";
 export const tripsTable = pgTable("trips", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").references(() => usersTable.id, { onDelete: "set null" }),
+  isSaved: boolean("is_saved").notNull().default(false),
   destination: text("destination").notNull(),
   startingLocation: text("starting_location").notNull(),
   startDate: text("start_date").notNull(),

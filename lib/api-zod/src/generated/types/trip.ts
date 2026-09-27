@@ -10,6 +10,7 @@ import type { TravelerProfile } from './travelerProfile';
 import type { TripCurrency } from './tripCurrency';
 
 export interface Trip {
+  is_saved?: boolean;
   id: string;
   destination: string;
   starting_location: string;

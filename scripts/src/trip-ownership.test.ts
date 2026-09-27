@@ -137,6 +137,10 @@ test("trip ownership, anonymous access, saving, and listing", async (t) => {
 
   assert.ok(storedOwnedTrip?.userId);
 
+  // Ownership protects a working trip; it does not put it in My Trips.
+  const draftList = await (await fetch(`${baseUrl}/api/trips`, { headers: { cookie: userACookie } })).json() as Array<{ id: string }>;
+  assert.equal(draftList.some((trip) => trip.id === ownedTripId), false);
+
   // Owner can access their trip.
   const ownerFetch = await fetch(`${baseUrl}/api/trips/${ownedTripId}`, {
     headers: { cookie: userACookie },
@@ -235,7 +239,52 @@ test("trip ownership, anonymous access, saving, and listing", async (t) => {
   });
   assert.equal(unauthenticatedSave.status, 401);
 
-  // My Trips contains User A's trips.
+  // An authenticated user's own draft becomes saved only through Save Trip.
+  const saveOwned = await fetch(`${baseUrl}/api/trips/${ownedTripId}/save`, { method: "POST", headers: { cookie: userACookie } });
+  assert.equal(saveOwned.status, 200);
+  assert.equal((await saveOwned.json() as { is_saved: boolean }).is_saved, true);
+
+  await t.test("analyze, generate, reopen, and refine preserve drafts until explicit save", async () => {
+    const geo = process.env.GEOAPIFY_API_KEY, ignav = process.env.IGNAV_API_KEY;
+    delete process.env.GEOAPIFY_API_KEY;
+    delete process.env.IGNAV_API_KEY;
+    try {
+      const id = await createTrip(baseUrl, "Portugal", userACookie);
+      const headers = { cookie: userACookie, "content-type": "application/json" };
+      const listed = async () => {
+        const response = await fetch(`${baseUrl}/api/trips`, { headers });
+        return (await response.json() as Array<{ id: string }>).some((trip) => trip.id === id);
+      };
+      assert.equal((await fetch(`${baseUrl}/api/trips/${id}/analyze`, { method: "POST", headers })).status, 200);
+      assert.equal((await fetch(`${baseUrl}/api/trips/${id}/generate`, { method: "POST", headers })).status, 200);
+      assert.equal(await listed(), false);
+      const modify = () => fetch(`${baseUrl}/api/trips/${id}/modify`, { method: "POST", headers, body: JSON.stringify({ user_request: "Slow down day 3" }) });
+      assert.equal((await modify()).status, 200);
+      const reopen = () => fetch(`${baseUrl}/api/trips/${id}`, { headers }).then((response) => response.json()) as Promise<{ is_saved: boolean; latest_itinerary: { id: string; version: number } }>;
+      const draft = await reopen();
+      assert.equal(draft.is_saved, false);
+      assert.equal(draft.latest_itinerary.version, 2);
+      assert.equal(await listed(), false);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const saved = await fetch(`${baseUrl}/api/trips/${id}/save`, { method: "POST", headers });
+        assert.equal(saved.status, 200);
+        assert.equal((await saved.json() as { is_saved: boolean }).is_saved, true);
+      }
+      assert.equal(await listed(), true);
+      assert.equal((await reopen()).latest_itinerary.id, draft.latest_itinerary.id, "saving must preserve the current version");
+      assert.equal((await modify()).status, 200);
+      assert.equal((await reopen()).latest_itinerary.version, 3);
+      assert.equal((await reopen()).is_saved, true);
+      assert.equal((await db.select().from(tripModificationsTable).where(eq(tripModificationsTable.tripId, id))).length, 2);
+      assert.equal((await fetch(`${baseUrl}/api/trips/${id}`, { method: "DELETE", headers })).status, 204);
+      assert.equal(await listed(), false);
+    } finally {
+      if (geo !== undefined) process.env.GEOAPIFY_API_KEY = geo;
+      if (ignav !== undefined) process.env.IGNAV_API_KEY = ignav;
+    }
+  });
+
+  // My Trips contains only User A's saved trips.
   const userAList = await fetch(`${baseUrl}/api/trips`, {
     headers: { cookie: userACookie },
   });

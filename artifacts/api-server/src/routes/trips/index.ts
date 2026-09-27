@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, isNull } from "drizzle-orm";
+import { eq, desc, and, or, isNull } from "drizzle-orm";
 import { db, tripsTable, itinerariesTable, tripModificationsTable } from "@workspace/db";
 import {
   CreateTripBody,
@@ -118,6 +118,7 @@ function formatTrip(
   const tripData = buildTripData(trip);
   return {
     id: trip.id,
+    is_saved: trip.isSaved,
     destination: trip.destination,
     starting_location: trip.startingLocation,
     start_date: trip.startDate,
@@ -132,7 +133,7 @@ function formatTrip(
   };
 }
 
-// GET /trips — list trips owned by the current user
+// GET /trips — list explicitly saved trips owned by the current user
 router.get("/trips", async (req, res): Promise<void> => {
   if (!req.authUser) {
     res.status(401).json({ error: "Authentication required" });
@@ -142,7 +143,7 @@ router.get("/trips", async (req, res): Promise<void> => {
   const trips = await db
     .select()
     .from(tripsTable)
-    .where(eq(tripsTable.userId, req.authUser.id))
+    .where(and(eq(tripsTable.userId, req.authUser.id), eq(tripsTable.isSaved, true)))
     .orderBy(desc(tripsTable.createdAt));
 
   const results = await Promise.all(
@@ -223,7 +224,7 @@ router.post("/trips", async (req, res): Promise<void> => {
   res.status(201).json(formatTrip(trip, null));
 });
 
-// POST /trips/:id/save — claim an anonymous trip for the current user
+// POST /trips/:id/save — explicitly save a working trip for the current user
 router.post("/trips/:id/save", async (req, res): Promise<void> => {
   if (!req.authUser) {
     res.status(401).json({ error: "Authentication required" });
@@ -247,28 +248,28 @@ router.post("/trips/:id/save", async (req, res): Promise<void> => {
     return;
   }
 
-  // Saving an already-owned trip is safely idempotent.
-  if (existingTrip.userId === req.authUser.id) {
+  // Saving an already-saved trip is safely idempotent.
+  if (existingTrip.userId === req.authUser.id && existingTrip.isSaved) {
     const itinerary = await loadLatestItinerary(existingTrip.id);
     res.status(200).json(formatTrip(existingTrip, itinerary));
     return;
   }
 
   // Do not reveal trips belonging to another user.
-  if (existingTrip.userId !== null) {
+  if (existingTrip.userId !== null && existingTrip.userId !== req.authUser.id) {
     res.status(404).json({ error: "Trip not found" });
     return;
   }
 
-  // Claim only if the trip is still anonymous. This prevents two users
-  // from successfully claiming the same trip at the same time.
+  // Save an owned draft, or atomically claim an anonymous working trip.
+  // Recheck ownership to prevent two users from claiming the same trip.
   const [claimedTrip] = await db
     .update(tripsTable)
-    .set({ userId: req.authUser.id })
+    .set({ userId: req.authUser.id, isSaved: true })
     .where(
       and(
         eq(tripsTable.id, params.data.id),
-        isNull(tripsTable.userId),
+        or(isNull(tripsTable.userId), eq(tripsTable.userId, req.authUser.id)),
       ),
     )
     .returning();

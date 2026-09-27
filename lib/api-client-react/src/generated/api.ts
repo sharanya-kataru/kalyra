@@ -514,7 +514,7 @@ export const getListTripsUrl = () => {
 }
 
 /**
- * @summary List trips owned by the current user
+ * @summary List saved trips owned by the current user
  */
 export const listTrips = async ( options?: RequestInit): Promise<Trip[]> => {
 
@@ -561,7 +561,7 @@ export type ListTripsQueryError = ErrorType<ErrorResponse>
 
 
 /**
- * @summary List trips owned by the current user
+ * @summary List saved trips owned by the current user
  */
 
 export function useListTrips<TData = Awaited<ReturnType<typeof listTrips>>, TError = ErrorType<ErrorResponse>>(

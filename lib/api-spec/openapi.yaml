@@ -145,7 +145,7 @@ paths:
     get:
       operationId: listTrips
       tags: [trips]
-      summary: List trips owned by the current user
+      summary: List saved trips owned by the current user
       responses:
         "200":
           description: Trips found
@@ -1297,6 +1297,8 @@ components:
     Trip:
       type: object
       properties:
+        is_saved:
+          type: boolean
         id:
           type: string
         destination:

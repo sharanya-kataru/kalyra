@@ -3,6 +3,7 @@ import { planningStyle } from "@/lib/planning-style";
 import { flightMetrics, flightDeltas, visibleFlightAlternatives } from "@/lib/flight-display";
 import { weatherPresentation } from "@/lib/weather-label";
 import { Fragment, useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLocation, useRoute } from 'wouter';
 import {
   ArrowUpRight,
@@ -34,6 +35,7 @@ import {
   useRefreshLiveData,
   useSaveTrip,
   useGetTrip,
+  getListTripsQueryKey,
 } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
 import type { ChangeMade, TripHealthScore } from '@workspace/api-client-react';
@@ -322,7 +324,7 @@ export default function Trip() {
   const [showHistory, setShowHistory] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [saveAfterAuth, setSaveAfterAuth] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const queryClient = useQueryClient();
 
     const {
     tripId,
@@ -338,9 +340,10 @@ export default function Trip() {
   const savedTripQuery = useGetTrip(tripToLoadId ?? '', {
   query: {
     queryKey: ['/api/trips', tripToLoadId],
-    enabled: Boolean(savedTripId) && !itinerary,
+    enabled: Boolean(tripToLoadId),
   },
 });
+  const saved = Boolean(savedTripQuery.data?.is_saved);
   const travelerCount = Math.max(1, Number(planData?.travelerCount) || 1);
   const { toast } = useToast();
   const modifyItinerary = useModifyItinerary();
@@ -367,7 +370,6 @@ export default function Trip() {
     if (trip.latest_itinerary) {
       setItinerary(trip.latest_itinerary);
     }
-    setSaved(true);
   }, [
     savedTripId,
     savedTripQuery.data,
@@ -394,8 +396,9 @@ export default function Trip() {
     saveTrip.mutate(
       { id: tripId },
       {
-        onSuccess: () => {
-          setSaved(true);
+        onSuccess: (trip) => {
+          queryClient.setQueryData(['/api/trips', trip.id], trip);
+          void queryClient.invalidateQueries({ queryKey: getListTripsQueryKey() });
           toast({
             title: 'Trip saved',
             description: 'You can now find this trip in My Trips.',
@@ -411,7 +414,7 @@ export default function Trip() {
         },
       },
     );
-  }, [saveAfterAuth, user, tripId, saved, saveTrip, toast]);
+  }, [saveAfterAuth, user, tripId, saved, saveTrip, toast, queryClient]);
 
   if (savedTripId && savedTripQuery.isLoading) {
     return (
@@ -523,8 +526,9 @@ export default function Trip() {
     saveTrip.mutate(
       { id: tripId },
       {
-        onSuccess: () => {
-          setSaved(true);
+        onSuccess: (trip) => {
+          queryClient.setQueryData(['/api/trips', trip.id], trip);
+          void queryClient.invalidateQueries({ queryKey: getListTripsQueryKey() });
           toast({
             title: 'Trip saved',
             description: 'You can now find this trip in My Trips.',

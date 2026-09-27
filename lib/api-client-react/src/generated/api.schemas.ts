@@ -514,6 +514,7 @@ export const TripCurrency = {
 } as const;
 
 export interface Trip {
+  is_saved?: boolean;
   id: string;
   destination: string;
   starting_location: string;

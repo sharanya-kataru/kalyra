@@ -92,7 +92,7 @@ export const ListDestinationsResponse = zod.object({
 
 
 /**
- * @summary List trips owned by the current user
+ * @summary List saved trips owned by the current user
  */
 
 
@@ -192,6 +192,7 @@ export const listTripsResponseLatestItineraryOneHealthScoreOnePacingScoreMax = 1
 
 
 export const ListTripsResponseItem = zod.object({
+  "is_saved": zod.boolean().optional(),
   "id": zod.string(),
   "destination": zod.string(),
   "starting_location": zod.string(),
@@ -720,6 +721,7 @@ export const createTripResponseLatestItineraryOneHealthScoreOnePacingScoreMax = 
 
 
 export const CreateTripResponse = zod.object({
+  "is_saved": zod.boolean().optional(),
   "id": zod.string(),
   "destination": zod.string(),
   "starting_location": zod.string(),
@@ -1248,6 +1250,7 @@ export const getTripResponseLatestItineraryOneHealthScoreOnePacingScoreMax = 100
 
 
 export const GetTripResponse = zod.object({
+  "is_saved": zod.boolean().optional(),
   "id": zod.string(),
   "destination": zod.string(),
   "starting_location": zod.string(),
@@ -1763,6 +1766,7 @@ export const saveTripResponseLatestItineraryOneHealthScoreOnePacingScoreMax = 10
 
 
 export const SaveTripResponse = zod.object({
+  "is_saved": zod.boolean().optional(),
   "id": zod.string(),
   "destination": zod.string(),
   "starting_location": zod.string(),
