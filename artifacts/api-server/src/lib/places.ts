@@ -576,6 +576,7 @@ async function resolveLocationOnce(query: string): Promise<ResolvedLocation | nu
 
 export interface AirportCandidate {
   name: string;
+  international?: boolean;
   formatted?: string;
   iata?: string;
   icao?: string;
@@ -772,8 +773,12 @@ async function searchAirportRadius(
 
         if (hasExplicitlyInvalidCategory) return null;
 
+        const raw = (propertyRecord.datasource as { raw?: Record<string, unknown> } | undefined)?.raw;
         const candidate: AirportCandidate = {
           name,
+          international: [raw?.aerodrome, raw?.["aerodrome:type"]].some(
+            (value) => typeof value === "string" && value.toLowerCase() === "international"
+          ),
           formatted: getPropertyText(propertyRecord.formatted),
           iata,
           icao,

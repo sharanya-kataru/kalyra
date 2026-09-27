@@ -80,7 +80,11 @@ async function resolveDynamicAirportIatas(
 
     const airports = await discoverNearbyAirports(resolved, maxAirports);
 
-    const iataCodes = airports
+    // Rank explicit international gateways before applying the search cap;
+    // nearby local airfields can otherwise crowd out usable passenger routes.
+    const iataCodes = [...airports]
+      .sort((a, b) => Number(Boolean(b.international)) - Number(Boolean(a.international))
+        || a.distance_km - b.distance_km)
       .map((airport) => airport.iata)
       .filter((iata): iata is string => Boolean(iata));
 

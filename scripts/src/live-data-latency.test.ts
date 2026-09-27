@@ -75,3 +75,42 @@ test("shortening reuses fresh matching weather, but stale or mismatched weather 
     assert.ok(result.daily_itinerary.every((day) => !day.weather));
   }
 });
+
+test("generation searches discovered international gateways before nearer local airports fill the candidate cap", async (t) => {
+  environment(t);
+  const requests: Array<{ origin: string; destination: string }> = [];
+  let airportQueries = 0;
+  t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.hostname === "ignav.com") {
+      requests.push(JSON.parse(String(init?.body)));
+      return Response.json({ itineraries: [] });
+    }
+    if (url.pathname.includes("geocode")) {
+      const origin = url.searchParams.get("text")?.includes("Gateway Origin");
+      return Response.json({ features: [{ geometry: { coordinates: [origin ? 31 : 32, 12] }, properties: {} }] });
+    }
+    if (url.searchParams.get("categories") === "airport") {
+      airportQueries++;
+      const origin = url.searchParams.get("filter")?.startsWith("circle:31,");
+      const codes = origin ? ["AAA", "AAB", "AAC", "AAD", "AAE"] : ["BBA", "BBB", "BBC", "BBD", "BBE"];
+      return Response.json({ features: codes.map((iata, index) => ({ properties: {
+        name: iata, place_id: iata, iata, lat: 12, lon: origin ? 31 : 32,
+        distance: (index + 1) * 1000,
+        // Broad categories also label local airports international: only the
+        // explicit source tags should promote the fifth candidate.
+        categories: ["airport", "airport.international"],
+        datasource: { raw: index === 4 ? { [origin ? "aerodrome:type" : "aerodrome"]: "international" } : {} },
+      } })) });
+    }
+    return Response.json({ features: [] });
+  });
+  const result = await generateEnrichedItinerary({ ...trip, destination: "Gateway Base", starting_location: "Gateway Origin" });
+  assert.equal(result.total_days, 3);
+  assert.deepEqual(requests[0] && { origin: requests[0].origin, destination: requests[0].destination }, { origin: "AAE", destination: "BBE" });
+  const exact = requests.slice(0, 14);
+  assert.equal(exact.length, 14, "the existing candidate request budget is preserved");
+  assert.deepEqual([...new Set(exact.map((request) => request.destination))], ["BBE", "BBA", "BBB", "BBC"]);
+  assert.deepEqual([...new Set(exact.map((request) => request.origin))], ["AAE", "AAA", "AAB", "AAC", "AAD"]);
+  assert.equal(airportQueries, 2, "gateway ranking needs no additional discovery requests");
+});
